@@ -2,7 +2,7 @@ import {test,expect} from '@playwright/test';
 import {execFileSync} from 'node:child_process';
 test('course math, real GPU rendering, AOVs, deterministic path and film preservation',async({page})=>{
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
- await page.goto('?verify=1');await expect(page.locator('h1')).toHaveText('Multiple Importance Sampling');await expect(page.locator('.katex-display').first()).toBeVisible();await expect(page.locator('pre.astro-code').first()).toContainText('fn power');
+ await page.goto('?verify=1');await page.waitForFunction(()=>document.querySelectorAll('astro-island[ssr]').length===0);await expect(page.locator('h1')).toHaveText('Multiple Importance Sampling');await expect(page.locator('.katex-display').first()).toBeVisible();await expect(page.locator('pre.astro-code').first()).toContainText('fn power');
  const before=await page.getByTestId('estimate').textContent();await page.getByRole('slider',{name:'BSDF lobe width'}).fill('.3');await expect(page.getByTestId('estimate')).not.toHaveText(before!);
  await page.getByRole('button',{name:'Start WebGPU experiment'}).click();
  await expect(page.getByTestId('spp')).not.toHaveText('0 spp',{timeout:90000});
@@ -22,7 +22,7 @@ test('course math, real GPU rendering, AOVs, deterministic path and film preserv
 });
 test('runtime baseline parity and capture equals the actual single film sample',async({page})=>{
  const baseline=['pathtrace','bsdf','textures','integrator'].map(name=>execFileSync('git',['show',`551334a7bae833db733c542879288b89bf7b6085:web/src/shaders/${name}.wgsl`],{cwd:'external/pbrt',encoding:'utf8'})).join('\n');
- await page.goto('?verify=1');await page.getByRole('button',{name:'Start WebGPU experiment'}).click();await page.waitForFunction(()=>Boolean((window as any).__rl?.sample));
+ await page.goto('?verify=1');await page.waitForFunction(()=>document.querySelectorAll('astro-island[ssr]').length===0);await page.getByRole('button',{name:'Start WebGPU experiment'}).click();await page.waitForFunction(()=>Boolean((window as any).__rl?.sample));
  const result=await page.evaluate(async(source)=>{
    const r=(window as any).__rl;r.teachingDepth=false;r.samplingMode='mis';r.clamp=true;r.maxSpp=1;r.depth=8;r.resize(128);
    await new Promise<void>(resolve=>{const f=()=>r.sample>=1?resolve():setTimeout(f,10);f();});r.paused=true;
@@ -40,7 +40,7 @@ test('runtime baseline parity and capture equals the actual single film sample',
  expect(result.maxError).toBeLessThan(1e-5);expect(result.spp).toBe(1);for(let c=0;c<3;c++)expect(Math.abs(result.film[c]-result.replayed[c])).toBeLessThan(1e-6);console.log('Baseline/capture verification',JSON.stringify(result));
 });
 test('mobile reading, chapter navigation and no-WebGPU fallback',async({browser})=>{
- const context=await browser.newContext({viewport:{width:390,height:844}}),page=await context.newPage();await page.addInitScript(()=>Object.defineProperty(navigator,'gpu',{value:undefined}));await page.goto('');await page.locator('.course-sidebar summary').click();
+ const context=await browser.newContext({viewport:{width:390,height:844}}),page=await context.newPage();await page.addInitScript(()=>Object.defineProperty(navigator,'gpu',{value:undefined}));await page.goto('');await page.waitForFunction(()=>document.querySelectorAll('astro-island[ssr]').length===0);await page.locator('.course-sidebar summary').click();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await page.getByRole('button',{name:'Start WebGPU experiment'}).click();await expect(page.locator('.viewport-message')).toContainText('WebGPU is unavailable');await page.screenshot({path:'test-results/mobile.png',fullPage:true});
  await page.goto('learn/monte-carlo/');await expect(page.locator('h1')).toHaveText('Integrals from random samples');await page.getByRole('link',{name:'Next event estimation',exact:true}).first().click();await expect(page.locator('h1')).toHaveText('Next event estimation');await context.close();

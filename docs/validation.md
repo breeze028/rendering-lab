@@ -39,4 +39,14 @@ GPU自检：6条CPU/GPU求交对比、28681项BSDF检查、9项解析检查，di
 
 ## 部署
 
-已创建公开仓库 `breeze028/rendering-lab`。GitHub Actions 与公网验证结果在部署完成后追加，不能将配置文件视为部署凭证。
+已创建公开仓库 `breeze028/rendering-lab`，并通过既有账号权限设置 Pages source=workflow。
+
+- 首个源码部署 commit：`ef147f47a04808f9362152a7d880f85f5d99f041`；[Actions run 43747575105](https://github.com/breeze028/rendering-lab/actions/runs/43747575105)，build与deploy均success。
+- 有效公开地址：[Rendering Lab](https://breeze028.github.io/rendering-lab/)。不是预览地址。
+- 公网 check-http：16个URL、WASM MIME/magic/实际compile、原Cornell2文件及LICENSE SHA256通过。
+- 公网完整学习链路浏览器测试通过：PDF交互、真实Cornell、三种估计器、7个AOV、Path Inspector、模式切换和GPU自检。公网移动端阅读/无WebGPU回退也通过。
+- 首次公网自动化过早操作SSR控件产生测试时序失败；测试已显式等待Astro hydration完成，再验证交互。独立公网加载确认完整Worker/WASM链和真实GPU输出。
+- Git HTTPS连接连续失败，改用官方Git Data API发布；API核对远端tree SHA与已审查本地tree完全一致，并重建/验证提交对象后更新本地引用。未扩大账号权限或暴露凭据。
+- 大屏正文最终限制760px，实验可独立拓宽；1660px截图检查readingWidth=760且无横向溢出。390px移动测试再次通过。
+
+本地原始 `pbrt-v4-parser` 和 `LightTransport` 检出始终保持干净；共享改动只位于新站子模块的独立分支。截图位于 `docs/evidence/`，包含阅读页、真实渲染/路径检查及移动回退。

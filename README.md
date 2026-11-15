@@ -2,7 +2,7 @@
 
 用数学、交互图表与真实 WebGPU 路径，解释光如何形成图像。首版完整链路为 **Monte Carlo → NEE → MIS → Cornell Box → 指定样本路径检查**。
 
-源码：https://github.com/breeze028/rendering-lab 。部署状态与真实证据见 [validation](docs/validation.md)，不要把构建完成当成网站上线。
+在线使用：[Rendering Lab](https://breeze028.github.io/rendering-lab/)。源码：[GitHub 仓库](https://github.com/breeze028/rendering-lab)。部署状态与真实证据见 [validation](docs/validation.md)。
 
 ## 先看哪里
 

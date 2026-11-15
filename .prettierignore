@@ -4,3 +4,6 @@ node_modules/
 public/runtime/
 .local/
 package-lock.json
+
+# MDX raw HTML blocks must retain inline phrasing to avoid nested paragraphs.
+src/pages/**/*.mdx

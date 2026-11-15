@@ -56,3 +56,4 @@ GPU自检：6条CPU/GPU求交对比、28681项BSDF检查、9项解析检查，di
 三篇课程正文、学习路线、阅读导航、目录和二维实验说明改为中文；数学公式与技术标识符保留。网站源码采用 Prettier（90列、2空格缩进），可运行 `npm run format` / `npm run format:check`。教学 WGSL 的 power、hit_weight 和 NEE 贡献计算在共享 runtime 中直接展开，不维护另一份展示代码；片段提取统一去除公共缩进，代码字号改为13px。
 
 本地 typecheck、format:check、生产构建、数学测试3/3、浏览器测试3/3通过。格式调整后旧基线图像最大误差仍为0，捕获样本RGB仍与film相等。
+MDX 的原生 HTML 说明块保留行内短语结构，并排除通用自动格式化，避免生成嵌套 p 标签；浏览器确认 lead 为22px且段落子节点数为0。

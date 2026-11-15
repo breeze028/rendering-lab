@@ -19,27 +19,15 @@ import { snippet } from '../lib/source';
 import bsdf from '../../external/pbrt/web/src/shaders/bsdf.wgsl?raw';
 import integrator from '../../external/pbrt/web/src/shaders/integrator.wgsl?raw';
 
-<div className="lesson-kicker">
-  05 / 重要性采样 <span>理论 + 交互实验</span>
-</div>
+<div className="lesson-kicker"> 05 / 重要性采样 <span>理论 + 交互实验</span> </div>
 
 # 多重重要性采样
 
-<p className="lead">
-  两种不够理想的寻光方法，
-  <br />
-  如何组合成更可靠的估计器？
-</p>
-<p className="lesson-meta">
-  蒙特卡洛积分 → 下一事件估计 → MIS <span>•</span> 中级 <span>•</span> WGSL / WebGPU
-</p>
-<div className="learning-note">
-  <span>核心问题</span>为什么更聪明地采样，仍然可能得到噪声很大的图像？
-</div>
+<p className="lead"> 两种不够理想的寻光方法， <br /> 如何组合成更可靠的估计器？ </p>
+<p className="lesson-meta"> 蒙特卡洛积分 → 下一事件估计 → MIS <span>•</span> 中级 <span>•</span> WGSL / WebGPU </p>
+<div className="learning-note"> <span>核心问题</span>为什么更聪明地采样，仍然可能得到噪声很大的图像？ </div>
 
-<h2 id="the-problem">
-  <span className="section-number">01</span> 两种寻找光源的方法
-</h2>
+<h2 id="the-problem"> <span className="section-number">01</span> 两种寻找光源的方法 </h2>
 
 路径追踪器沿随机采样的方向追踪光线，估计到达相机的光。在表面上，直接光照问题可以写成半球上的积分：
 
@@ -51,15 +39,9 @@ $$
 
 没有一种采样分布能在所有配置下获胜。多重重要性采样（Multiple Importance Sampling，MIS）组合多种策略，并在 **实际采到的方向上，求出所有竞争策略的 PDF**，据此决定各项贡献的权重。
 
-<div className="prerequisite">
-  先修知识：理解 PDF，以及为什么估计值要除以 PDF。需要回顾时，可以先读{' '}
-  <a href="./learn/monte-carlo/">蒙特卡洛积分 ↗</a> 和{' '}
-  <a href="./learn/next-event-estimation/">下一事件估计 ↗</a>。
-</div>
+<div className="prerequisite"> 先修知识：理解 PDF，以及为什么估计值要除以 PDF。需要回顾时，可以先读{' '} <a href="./learn/monte-carlo/">蒙特卡洛积分 ↗</a> 和{' '} <a href="./learn/next-event-estimation/">下一事件估计 ↗</a>。 </div>
 
-<h2 id="sampling">
-  <span className="section-number">02</span> 建立采样直觉
-</h2>
+<h2 id="sampling"> <span className="section-number">02</span> 建立采样直觉 </h2>
 
 先缩小光源，再收窄 BSDF 波瓣。观察两种分布如何偏向不同区域，以及图表下的积分估计如何变化。横轴短线对应实际生成的样本；统计也包含贡献为零的样本。
 
@@ -69,9 +51,7 @@ $$
 
 均匀采样与余弦采样覆盖整个定义域。光源采样的支持域较小，但由于此模型的被积函数在光源区间外为零，它仍是有效的估计器。完整的间接光照积分不满足这一前提。波瓣和光源宽度滑杆只改变本模型，不会修改 Cornell 场景。
 
-<h2 id="estimator">
-  <span className="section-number">03</span> 组合多个估计器
-</h2>
+<h2 id="estimator"> <span className="section-number">03</span> 组合多个估计器 </h2>
 
 对独立样本 $X_{i,j}\sim p_i$，多样本 MIS 估计器为：
 
@@ -85,9 +65,7 @@ $$
 
 光源 PDF 高、BSDF PDF 低时，光源样本获得较高权重。反过来，如果某个 BSDF 样本找到光源采样几乎无法发现的光滑反射方向，BSDF 样本就应获得较高权重。**MIS 分配的是估计器的权重，目标积分并未改变。**
 
-<h2 id="cornell-intro">
-  <span className="section-number">04</span> 进入 Cornell Box
-</h2>
+<h2 id="cornell-intro"> <span className="section-number">04</span> 进入 Cornell Box </h2>
 
 现在运行真正的渲染估计器。可以从 16 SPP 开始，在相同最大深度下比较 BSDF only、Light/NEE 和 MIS。重置后采用同一套确定性种子序列。噪声差异由算法产生，而不是显示滤镜。
 
@@ -97,9 +75,7 @@ $$
 
 点击图像选择像素，再展开 Path inspector（路径检查器）。一个像素包含许多样本，并不对应唯一一条光线。重放使用指定的零基样本索引，以及当前估计器、种子和相机。世界空间路径视图具有独立的调试视角：观察路径不会旋转成像相机，也不会清空 film。打开完整 Lab 只改变布局，GPU 累积继续保留。
 
-<h2 id="implementation">
-  <span className="section-number">05</span> 阅读实际运行的代码
-</h2>
+<h2 id="implementation"> <span className="section-number">05</span> 阅读实际运行的代码 </h2>
 
 以下片段在 **构建时直接从渲染器实际加载的 WGSL 文件中提取**。先看幂启发式：在平方前对两个 PDF 按共同尺度缩放，避免较大密度值引发溢出。
 
@@ -122,9 +98,7 @@ BSDF 命中发光体时的互补权重同样重要。如果只给 NEE 加权，�
   lang="wgsl"
 />
 
-<h2 id="boundaries">
-  <span className="section-number">06</span> 实验的结论与边界
-</h2>
+<h2 id="boundaries"> <span className="section-number">06</span> 实验的结论与边界 </h2>
 
 基准采用原始 Cornell 漫反射材质与面光源，**关闭贡献钳制（contribution clamp）**。本课不需要玻璃、涂层、体积或光谱材质，因而避开了 runtime 中的玻璃直通阴影、简化涂层和 RGB 光谱近似。
 
@@ -132,18 +106,11 @@ BSDF 命中发光体时的互补权重同样重要。如果只给 NEE 加权，�
 
 单张带噪图像不能证明方差或收敛速度。相同 SPP 不代表相同耗时或光线数。本站不显示未经测量的 GPU 时间，也不会在没有匹配线性参考图时宣称图像误差。有限路径深度改变了目标传输和；俄罗斯轮盘赌（RR）对存活路径做补偿，却不能恢复主动截断的反弹。
 
-<h2 id="references">
-  <span className="section-number">07</span> 延伸阅读
-</h2>
+<h2 id="references"> <span className="section-number">07</span> 延伸阅读 </h2>
 
 - [PBRT 第四版：提高效率 / MIS](https://pbr-book.org/4ed/Monte_Carlo_Integration/Improving_Efficiency)：估计器、支持域条件、平衡与幂启发式。
 - [PBRT 第四版：更好的路径追踪器](https://pbr-book.org/4ed/Light_Transport_I_Surface_Reflection/A_Better_Path_Tracer)：发光体命中与直接光采样的互补权重。
 - [Veach：Robust Monte Carlo Methods for Light Transport Simulation](https://graphics.stanford.edu/papers/veach_thesis/)：第 9 章，MIS 的统计基础。
 - [共享 runtime 源码](https://github.com/breeze028/pbrt-v4-parser/tree/feat/rendering-lab-observation/web)：实现与近似边界。
 
-<div className="next-lesson">
-  <span>继续探索</span>
-  <a href="./roadmap/">
-    从相机路径到双向光传输 <span>→</span>
-  </a>
-</div>
+<div className="next-lesson"> <span>继续探索</span> <a href="./roadmap/"> 从相机路径到双向光传输 <span>→</span> </a> </div>

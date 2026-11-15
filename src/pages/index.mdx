@@ -1,104 +1,149 @@
 ---
 layout: ../layouts/Lesson.astro
-title: Multiple Importance Sampling
+title: 多重重要性采样
 section: '05'
 toc:
-  - {id: the-problem, label: Two ways to find light}
-  - {id: sampling, label: Build an intuition}
-  - {id: estimator, label: Combine the estimators}
-  - {id: renderer, label: Into the Cornell Box}
-  - {id: implementation, label: Read the real code}
-  - {id: boundaries, label: What this proves}
-  - {id: references, label: Further reading}
+  - { id: the-problem, label: 两种寻找光源的方法 }
+  - { id: sampling, label: 建立采样直觉 }
+  - { id: estimator, label: 组合多个估计器 }
+  - { id: renderer, label: 进入 Cornell Box }
+  - { id: implementation, label: 阅读实际运行的代码 }
+  - { id: boundaries, label: 实验的结论与边界 }
+  - { id: references, label: 延伸阅读 }
 ---
+
 import SamplingLab from '../components/SamplingLab';
 import RendererLab from '../components/RendererLab';
-import {Code} from 'astro:components';
-import {snippet} from '../lib/source';
+import { Code } from 'astro:components';
+import { snippet } from '../lib/source';
 import bsdf from '../../external/pbrt/web/src/shaders/bsdf.wgsl?raw';
 import integrator from '../../external/pbrt/web/src/shaders/integrator.wgsl?raw';
 
-<div className="lesson-kicker">05 / IMPORTANCE SAMPLING <span>THEORY + INTERACTIVE LAB</span></div>
-# Multiple Importance Sampling
-<p className="lead">Two imperfect ways to find light.<br/>One much better estimator.</p>
-<p className="lesson-meta">Monte Carlo → Next event estimation → MIS <span>•</span> Intermediate <span>•</span> WGSL / WebGPU</p>
-<div className="learning-note"><span>THE QUESTION</span>Why can sampling more intelligently still give us a noisy image?</div>
+<div className="lesson-kicker">
+  05 / 重要性采样 <span>理论 + 交互实验</span>
+</div>
 
-<h2 id="the-problem"><span className="section-number">01</span> Two ways to find light</h2>
+# 多重重要性采样
 
-A path tracer estimates light arriving at the camera by following randomly sampled directions. At a surface, the direct-lighting problem is an integral over the hemisphere:
+<p className="lead">
+  两种不够理想的寻光方法，
+  <br />
+  如何组合成更可靠的估计器？
+</p>
+<p className="lesson-meta">
+  蒙特卡洛积分 → 下一事件估计 → MIS <span>•</span> 中级 <span>•</span> WGSL / WebGPU
+</p>
+<div className="learning-note">
+  <span>核心问题</span>为什么更聪明地采样，仍然可能得到噪声很大的图像？
+</div>
+
+<h2 id="the-problem">
+  <span className="section-number">01</span> 两种寻找光源的方法
+</h2>
+
+路径追踪器沿随机采样的方向追踪光线，估计到达相机的光。在表面上，直接光照问题可以写成半球上的积分：
 
 $$
 L_o(\omega_o)=\int_{\Omega^+} f_r(\omega_o,\omega_i)\,L_i(\omega_i)\,|n\cdot\omega_i|\,d\omega_i.
 $$
 
-The integrand is a product. A direction matters when **both** the BSDF and incoming light are large. Sampling the BSDF follows the material's preferred directions, but may rarely find a small light. Sampling the light finds the emitter, but may miss a narrow reflection lobe.
+被积函数是几个因子的乘积：只有 **BSDF 和入射光都较大**，这个方向才会产生显著贡献。BSDF 采样遵循材质偏好的方向，却可能很难命中小光源；光源采样能找到发光体，却可能错过狭窄的反射波瓣。
 
-There is no single sampling distribution that wins in every configuration. Multiple importance sampling (MIS) combines techniques, using the PDF of **every competing technique at the direction actually sampled** to decide how much to trust each contribution.
+没有一种采样分布能在所有配置下获胜。多重重要性采样（Multiple Importance Sampling，MIS）组合多种策略，并在 **实际采到的方向上，求出所有竞争策略的 PDF**，据此决定各项贡献的权重。
 
-<div className="prerequisite">Before continuing: know what a PDF is and why an estimate divides by it. Read <a href="./learn/monte-carlo/">Monte Carlo integration ↗</a> and <a href="./learn/next-event-estimation/">next event estimation ↗</a> if needed.</div>
+<div className="prerequisite">
+  先修知识：理解 PDF，以及为什么估计值要除以 PDF。需要回顾时，可以先读{' '}
+  <a href="./learn/monte-carlo/">蒙特卡洛积分 ↗</a> 和{' '}
+  <a href="./learn/next-event-estimation/">下一事件估计 ↗</a>。
+</div>
 
-<h2 id="sampling"><span className="section-number">02</span> Build an intuition</h2>
+<h2 id="sampling">
+  <span className="section-number">02</span> 建立采样直觉
+</h2>
 
-Make the light smaller. Then narrow the BSDF lobe. Watch the distributions pull in different directions, and inspect the estimate beneath the plot. Marks on the horizontal axis are actual generated samples; the estimate includes zero contributions too.
+先缩小光源，再收窄 BSDF 波瓣。观察两种分布如何偏向不同区域，以及图表下的积分估计如何变化。横轴短线对应实际生成的样本；统计也包含贡献为零的样本。
 
 <SamplingLab client:load />
 
-This is deliberately a **one-dimensional model**, not a physically complete surface integral. Here $x=\theta/(\pi/2)$, the BSDF proxy is a truncated Cauchy density centered at 0.32, the cosine PDF is $p_c(x)=\frac\pi2\cos(\pi x/2)$, and the light is a box centered at 0.68. The integrand is $f(x)=p_b(x)\cos(\pi x/2)\mathbf1_{\text{light}}(x)$. Every density integrates to one. The displayed reference is 8192-point midpoint quadrature over the light interval.
+这里刻意使用 **一维教学模型**，并非完整的物理表面积分。令 $x=\theta/(\pi/2)$，BSDF 代理是中心位于 0.32 的截断 Cauchy 密度，余弦 PDF 为 $p_c(x)=\frac\pi2\cos(\pi x/2)$，光源为中心位于 0.68 的矩形函数。被积函数为 $f(x)=p_b(x)\cos(\pi x/2)\mathbf1_{\text{light}}(x)$。各 PDF 的积分都为 1。参考值是在光源区间上用 8192 个中点做数值积分得到的。
 
-Uniform and cosine sampling have full support. Light sampling has restricted support, which is valid here because the integrand vanishes outside the light. That assumption does not hold for a full indirect-lighting estimator. The lobe and light-width sliders affect this model only; they do not edit the Cornell scene.
+均匀采样与余弦采样覆盖整个定义域。光源采样的支持域较小，但由于此模型的被积函数在光源区间外为零，它仍是有效的估计器。完整的间接光照积分不满足这一前提。波瓣和光源宽度滑杆只改变本模型，不会修改 Cornell 场景。
 
-<h2 id="estimator"><span className="section-number">03</span> Combine the estimators</h2>
+<h2 id="estimator">
+  <span className="section-number">03</span> 组合多个估计器
+</h2>
 
-For independent samples $X_{i,j}\sim p_i$, the multi-sample MIS estimator is:
+对独立样本 $X_{i,j}\sim p_i$，多样本 MIS 估计器为：
 
 $$
 \widehat I=\sum_i\frac1{n_i}\sum_{j=1}^{n_i}w_i(X_{i,j})\frac{f(X_{i,j})}{p_i(X_{i,j})},\qquad w_i(x)=\frac{(n_i p_i(x))^\beta}{\sum_k(n_kp_k(x))^\beta}.
 $$
 
-The weights must sum to one wherever the integrand is nonzero; a technique with zero PDF receives zero weight. With $\beta=2$, this is the **power heuristic**. The renderer takes one light sample and one BSDF continuation at a non-delta vertex, so $n_b=n_l=1$. Both PDFs must be expressed in the same measure: solid angle here, in sr⁻¹.
+在被积函数非零的区域，各策略权重之和必须为 1；PDF 为零的策略获得零权重。当 $\beta=2$ 时，这称为 **幂启发式（power heuristic）**。渲染器在非 delta 顶点生成一个光源样本和一个 BSDF 延续样本，因此 $n_b=n_l=1$。比较的 PDF 必须采用同一测度：本课使用立体角测度，单位为 sr⁻¹。
 
-The plot uses a different, explicitly counted budget: one technique is randomly selected with probability 1/2 for each draw. Its contribution is $2w_i(x)f(x)/p_i(x)$. Thus 256 draws really means 256 directions, not 256 pairs. Its MIS result should not be compared as if it had the renderer's per-vertex cost.
+图表采用另一种明确计数的预算：每次以 1/2 的概率选择一种策略，样本贡献为 $2w_i(x)f(x)/p_i(x)$。因此，256 次采样代表 256 个方向，而不是 256 对方向。不能把图表中的 MIS 成本当成渲染器每顶点的采样成本。
 
-When the light PDF is high and the BSDF PDF is low, the light sample gets most of the weight. If a BSDF sample reaches a difficult glossy reflection that light sampling would almost never find, the BSDF sample gets most of the weight. **MIS allocates trust, not energy.** It is still estimating the same integral.
+光源 PDF 高、BSDF PDF 低时，光源样本获得较高权重。反过来，如果某个 BSDF 样本找到光源采样几乎无法发现的光滑反射方向，BSDF 样本就应获得较高权重。**MIS 分配的是估计器的权重，目标积分并未改变。**
 
-<h2 id="cornell-intro"><span className="section-number">04</span> Into the Cornell Box</h2>
+<h2 id="cornell-intro">
+  <span className="section-number">04</span> 进入 Cornell Box
+</h2>
 
-Now run the actual estimator. Start with 16 SPP and compare BSDF only, light/NEE, and MIS at the same maximum depth. Resetting starts the same deterministic seed schedule. A change in noise is produced by the algorithm, not a display filter.
+现在运行真正的渲染估计器。可以从 16 SPP 开始，在相同最大深度下比较 BSDF only、Light/NEE 和 MIS。重置后采用同一套确定性种子序列。噪声差异由算法产生，而不是显示滤镜。
 
 <RendererLab client:load />
 
-**BSDF only** disables NEE and gives unweighted emitter hits. **Light/NEE** disables MIS and suppresses non-delta continuation hits on sampled emitters, preventing double counting. Camera and delta-chain emitter hits remain. **MIS** combines both branches with power weights. This benchmark counts maximum depth as scattering vertices and still evaluates terminal emission. At depth one all three strategies target direct lighting at the first surface. The opt-in convention leaves the older Scene Lab defaults intact.
+**BSDF only** 关闭 NEE，命中发光体时不加 MIS 权重。**Light/NEE** 关闭 MIS，并抑制非 delta 延续路径对已采样发光体的命中贡献，以免重复计数；相机直接可见与 delta 链命中的发光体仍然保留。**MIS** 用幂启发式组合两个分支。本实验将最大深度定义为散射顶点数，并继续求末端发光贡献，因此深度为 1 时，三种策略都估计第一个表面上的直接光照。这一约定仅由教学站启用，旧 Scene Lab 的默认行为不变。
 
-Click the image to select a pixel, then open the path inspector. A pixel is a family of samples, not one ray. The replay uses a specific zero-based sample index and the current estimator, seed and camera. Its world-space view has an independent debug orbit: inspecting a path does not rotate the rendering camera or reset the film. Opening the full Lab changes only layout and retains GPU accumulation.
+点击图像选择像素，再展开 Path inspector（路径检查器）。一个像素包含许多样本，并不对应唯一一条光线。重放使用指定的零基样本索引，以及当前估计器、种子和相机。世界空间路径视图具有独立的调试视角：观察路径不会旋转成像相机，也不会清空 film。打开完整 Lab 只改变布局，GPU 累积继续保留。
 
-<h2 id="implementation"><span className="section-number">05</span> Read the real code</h2>
+<h2 id="implementation">
+  <span className="section-number">05</span> 阅读实际运行的代码
+</h2>
 
-The following snippets are extracted **at build time from the same WGSL files imported by the runtime**. The power function rescales the PDFs before squaring, avoiding overflow for large densities:
+以下片段在 **构建时直接从渲染器实际加载的 WGSL 文件中提取**。先看幂启发式：在平方前对两个 PDF 按共同尺度缩放，避免较大密度值引发溢出。
 
-<Code code={bsdf.slice(bsdf.indexOf('fn power('),bsdf.indexOf('fn invalid_scatter'))} lang="wgsl" />
+<Code
+  code={bsdf.slice(bsdf.indexOf('fn power('), bsdf.indexOf('fn invalid_scatter'))}
+  lang="wgsl"
+/>
 
-The NEE branch evaluates both PDFs in solid angle, traces the real shadow connection, and adds its weighted direct contribution:
+NEE 分支将两个 PDF 都表示为立体角密度，追踪真实的阴影连接，再累加加权后的直接光照贡献：
 
-<Code code={snippet(integrator,'nee')} lang="wgsl" />
+<Code code={snippet(integrator, 'nee')} lang="wgsl" />
 
-The complementary BSDF-hit weighting is equally essential. Adding weighted NEE while leaving all emitter hits at weight one would count the same direct path twice:
+BSDF 命中发光体时的互补权重同样重要。如果只给 NEE 加权，却仍将全部发光体命中贡献按权重 1 累加，就会重复计算同一类直接光照路径：
 
-<Code code={integrator.slice(integrator.indexOf('fn hit_weight'),integrator.indexOf('fn trace('))} lang="wgsl" />
+<Code
+  code={integrator.slice(
+    integrator.indexOf('fn hit_weight'),
+    integrator.indexOf('fn trace('),
+  )}
+  lang="wgsl"
+/>
 
-<h2 id="boundaries"><span className="section-number">06</span> What this experiment proves</h2>
+<h2 id="boundaries">
+  <span className="section-number">06</span> 实验的结论与边界
+</h2>
 
-The benchmark uses the original Cornell diffuse materials and area emitter. Contribution clamping is **disabled**. No glass, coat, volumetric or spectral material is needed, avoiding the runtime's straight-through glass shadows, approximate coat model, and RGB spectral approximations in this lesson.
+基准采用原始 Cornell 漫反射材质与面光源，**关闭贡献钳制（contribution clamp）**。本课不需要玻璃、涂层、体积或光谱材质，因而避开了 runtime 中的玻璃直通阴影、简化涂层和 RGB 光谱近似。
 
-The image is accumulated in linear RGB. Final display uses the runtime's exponential tone map and gamma 2.2; AOVs bypass that display transform and show their defined encoding directly. Primary AOVs use pixel-center rays without antialias jitter and return black on a miss. Switching AOV resets that view's film; layout and exposure changes do not reset it.
+图像在线性 RGB 中累积。最终显示沿用指数色调映射与 gamma 2.2；AOV 绕过该显示变换，直接显示各自定义的编码。主射线 AOV 使用不带抗锯齿抖动的像素中心射线，未命中时返回黑色。切换 AOV 会重置该视图的 film，布局与曝光变化不会重置。
 
-A single noisy image does not establish variance or convergence rate. Equal SPP does not mean equal time or ray count. We do not display invented GPU timings or claim image error without a matched linear reference. Finite path depth changes the target transport sum; RR compensates surviving paths, but cannot recover deliberately truncated bounces.
+单张带噪图像不能证明方差或收敛速度。相同 SPP 不代表相同耗时或光线数。本站不显示未经测量的 GPU 时间，也不会在没有匹配线性参考图时宣称图像误差。有限路径深度改变了目标传输和；俄罗斯轮盘赌（RR）对存活路径做补偿，却不能恢复主动截断的反弹。
 
-<h2 id="references"><span className="section-number">07</span> Keep following the light</h2>
+<h2 id="references">
+  <span className="section-number">07</span> 延伸阅读
+</h2>
 
-- [PBRT 4e — Improving Efficiency / MIS](https://pbr-book.org/4ed/Monte_Carlo_Integration/Improving_Efficiency): estimator, support requirements, balance and power heuristics.
-- [PBRT 4e — A Better Path Tracer](https://pbr-book.org/4ed/Light_Transport_I_Surface_Reflection/A_Better_Path_Tracer): complementary emitter and direct-light weights.
-- [Veach, Robust Monte Carlo Methods for Light Transport Simulation](https://graphics.stanford.edu/papers/veach_thesis/): Chapter 9, the deeper statistical foundation.
-- [The shared runtime](https://github.com/breeze028/pbrt-v4-parser/tree/feat/rendering-lab-observation/web): inspect the implementation and its approximation boundaries.
+- [PBRT 第四版：提高效率 / MIS](https://pbr-book.org/4ed/Monte_Carlo_Integration/Improving_Efficiency)：估计器、支持域条件、平衡与幂启发式。
+- [PBRT 第四版：更好的路径追踪器](https://pbr-book.org/4ed/Light_Transport_I_Surface_Reflection/A_Better_Path_Tracer)：发光体命中与直接光采样的互补权重。
+- [Veach：Robust Monte Carlo Methods for Light Transport Simulation](https://graphics.stanford.edu/papers/veach_thesis/)：第 9 章，MIS 的统计基础。
+- [共享 runtime 源码](https://github.com/breeze028/pbrt-v4-parser/tree/feat/rendering-lab-observation/web)：实现与近似边界。
 
-<div className="next-lesson"><span>CONTINUE EXPLORING</span><a href="./roadmap/">From camera paths to bidirectional transport <span>→</span></a></div>
+<div className="next-lesson">
+  <span>继续探索</span>
+  <a href="./roadmap/">
+    从相机路径到双向光传输 <span>→</span>
+  </a>
+</div>

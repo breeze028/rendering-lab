@@ -1,29 +1,34 @@
 ---
 layout: ../layouts/Lesson.astro
-title: The Learning Path
+title: 学习路线
 section: '00'
 ---
-<div className="lesson-kicker">RENDERING LAB / THE LEARNING PATH</div>
-# Follow the dependencies
-<p className="lead">A small set of complete experiments.<br/>A clear route toward deeper transport.</p>
 
-The first release connects [Monte Carlo integration](../learn/monte-carlo/), [NEE](../learn/next-event-estimation/) and [MIS](../). Other sidebar modules are planned topics, not finished lessons.
+<div className="lesson-kicker">RENDERING LAB / 学习路线</div>
 
-<ol className="roadmap-list">
-<li>Geometry → rays, intersections, world and local frames.</li>
-<li>Radiometry → units and the rendering equation.</li>
-<li>BSDF → sampling, densities and delta distributions.</li>
-<li>Monte Carlo → importance sampling → NEE → MIS. The current complete example.</li>
-<li>Path tracing → film statistics, contribution decomposition, reference images.</li>
-<li>BDPT → camera and light subpaths, forward/reverse area densities, strategy weights.</li>
-<li>Photon mapping / SPPM → photon emission, spatial index, radius/flux update, photons as the budget.</li>
-<li>PSSMLT / MLT → primary samples, mutations, bootstrap normalization, acceptance and chain diagnostics.</li>
-<li>Advanced materials → validate energy and sampling before new visual models.</li>
-<li>Volumes → free-flight distances, transmittance, phase functions and medium boundaries.</li>
-<li>Reconstruction / denoising → first-hit guides, temporal reprojection, disocclusion, linear HDR references.</li>
-<li>Differentiable rendering → parameter contracts, visibility discontinuities, gradient validation.</li>
-</ol>
+# 沿着知识依赖前进
 
-Future integrators own initialization, multiple dispatch stages, persistent state, reset and disposal. The existing megakernel remains the first implementation. We will compare rays, photons, mutations and wall-clock measurements explicitly; these are not interchangeable SPP counters.
+<p className="lead">
+  先完成少量扎实的实验，
+  <br />
+  再走向更深入的光传输算法。
+</p>
 
-The C++ parser remains in [pbrt-v4-parser](https://github.com/breeze028/pbrt-v4-parser). This website owns lessons, UI, experiments and session adapters. Source, build instructions and evidence are in [the project repository](https://github.com/breeze028/rendering-lab).
+首版串联了 [蒙特卡洛积分](../learn/monte-carlo/)、[下一事件估计](../learn/next-event-estimation/) 与 [多重重要性采样](../)。侧栏其他模块是规划内容，尚未完成对应教程。
+
+1. 几何：光线、求交、世界坐标与局部坐标系。
+2. 辐射度量学：物理量、单位与渲染方程。
+3. BSDF：采样、概率密度与 delta 分布。
+4. 蒙特卡洛积分 → 重要性采样 → NEE → MIS：当前已完成的示范链路。
+5. 路径追踪：film 统计、贡献分解与参考图。
+6. BDPT：相机与光源子路径、正反向面积密度、策略权重。
+7. 光子映射 / SPPM：光子发射、空间索引、半径与通量更新，使用光子数衡量预算。
+8. PSSMLT / MLT：主样本、突变、bootstrap 归一化、接受率与链诊断。
+9. 高级材质：先验证能量与采样，再扩展视觉模型。
+10. 体积渲染：自由程、透射率、相函数与介质边界。
+11. 图像重建与降噪：首命中引导数据、时间重投影、反遮挡与线性 HDR 参考。
+12. 可微渲染：参数契约、可见性不连续与梯度验证。
+
+未来的积分器会拥有自己的初始化、多阶段 dispatch、持久状态、重置与释放流程。现有 megakernel 仍作为第一个实现。比较算法时会明确区分光线数、光子数、突变数与实际耗时，不能将它们都当成同一种 SPP 计数。
+
+C++ Parser 继续由 [pbrt-v4-parser](https://github.com/breeze028/pbrt-v4-parser) 维护。本站负责课程、界面、实验与会话适配。源码、构建方法与验证证据见 [项目仓库](https://github.com/breeze028/rendering-lab)。

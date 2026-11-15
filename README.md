@@ -81,3 +81,7 @@ npm run test:browser
 ## 许可
 
 本站源码 Apache-2.0。共享 runtime 的 Apache-2.0、LightTransport 作者归属、PBRT及工具链 notices、Cornell CC0 均保留；完整来源见 [THIRD_PARTY](THIRD_PARTY.md) 与上游 web/THIRD_PARTY。
+
+## 代码排版
+
+教程正文与阅读导航使用中文，保留 BSDF、PDF、MIS、WGSL 等技术标识。网站源码统一用 `npm run format` 格式化，用 `npm run format:check` 检查；共享 WGSL 教学函数直接在依赖源码中按多行展开，课程引用同一份运行代码。

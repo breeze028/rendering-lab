@@ -1,14 +1,164 @@
-import {useState} from 'react';
-export type Capture={pixel:number[];sample:number;radiance:number[];vertices:number[][];camera:number[];truncated:boolean};
-const fmt=(v:number[])=>v.map(x=>Number.isFinite(x)?x.toFixed(4):String(x)).join(', ');
-export default function PathView({capture}:{capture:Capture}){
- const [selected,setSelected]=useState(0),[yaw,setYaw]=useState(.6),[pitch,setPitch]=useState(.25);
- const vertices=capture.vertices,v=vertices[Math.min(selected,vertices.length-1)];
- const positions=[[capture.camera[3],capture.camera[7],capture.camera[11]],...vertices.map(v=>v.slice(0,3))];
- const center=positions[1]||[0,0,0],scale=Math.max(1,...positions.flatMap(p=>p.map((x,i)=>Math.abs(x-center[i]))));
- const project=(p:number[])=>{let [x,y,z]=p.map((n,i)=>(n-center[i])/scale);const q=x*Math.sin(yaw)+z*Math.cos(yaw);return [210+(x*Math.cos(yaw)-z*Math.sin(yaw))*155,140-(y*Math.cos(pitch)-q*Math.sin(pitch))*110];};
- return <div className="path-inspector"><div><div className="eyebrow">WORLD-SPACE PATH · INDEPENDENT DEBUG CAMERA</div><svg viewBox="0 0 420 280" role="img" aria-label="World-space captured path"><line x1="20" y1="250" x2="400" y2="250" stroke="#353a40"/>{positions.slice(1).map((p,i)=>{const a=project(positions[i]),b=project(p);return <g key={i}><line x1={a[0]} y1={a[1]} x2={b[0]} y2={b[1]} stroke="#9abdaa" strokeWidth="2"/><circle cx={b[0]} cy={b[1]} r={i===selected?6:4} fill={i===selected?'#e0b76e':'#9abdaa'}/><text x={b[0]+9} y={b[1]-6}>{i}</text>{vertices[i][31]>0&&(()=>{const n=project(vertices[i].slice(40,43));return <line x1={b[0]} y1={b[1]} x2={n[0]} y2={n[1]} stroke="#e0b76e" strokeDasharray="4 4"/>;})()}</g>;})}<text x="15" y="270">Green: continuation · dashed gold: NEE connection</text></svg><label>Debug orbit <input aria-label="Debug orbit" type="range" min="-3.14" max="3.14" step=".02" value={yaw} onChange={e=>setYaw(+e.target.value)}/></label><label>Debug elevation <input aria-label="Debug elevation" type="range" min="-1.4" max="1.4" step=".02" value={pitch} onChange={e=>setPitch(+e.target.value)}/></label><small>Projection of actual world-space positions; no scene mesh overlay. Rendering camera and accumulation are unchanged.</small></div>
- <div><p className="mono">Pixel ({capture.pixel.join(', ')}) · sample #{capture.sample} · {vertices.length} vertices</p><label>Vertex <select value={selected} onChange={e=>setSelected(+e.target.value)}>{vertices.map((_,i)=><option key={i} value={i}>{i}</option>)}</select></label>{v?<dl className="vertex-data">{[
- ['Position / world',fmt(v.slice(0,3))],['Material / placement',`${v[3]} / ${v[46]}`],['Incoming / world',fmt(v.slice(12,15))],['Outgoing / world',fmt(v.slice(20,23))],['Geometric normal',fmt(v.slice(4,7))],['Shading normal',fmt(v.slice(8,11))],['Throughput at entry',fmt(v.slice(16,19))],['BSDF value / local',fmt(v.slice(24,27))],['Forward PDF / sr⁻¹',fmt([v[23]])],['NEE PDF / sr⁻¹',fmt([v[31]])],['NEE MIS weight',fmt([v[35]])],['NEE contribution / RGB',fmt(v.slice(32,35))],['RR survival / terminated',`${v[39].toFixed(4)} / ${v[47]===1}`]
- ].map(([k,value])=><div key={k}><dt>{k}</dt><dd>{value}</dd></div>)}</dl>:<p>Ray escaped without a surface vertex.</p>}<p className="mono">Sample RGB: {fmt(capture.radiance)}</p>{capture.truncated&&<p>Capture capped at 64 vertices; tracing continues.</p>}<small>Zero fields can mean an event was not evaluated (emitter, termination, no valid NEE). Delta BSDF values are not continuous densities. See capture schema in docs.</small></div></div>;
+import { useState } from 'react';
+export type Capture = {
+  pixel: number[];
+  sample: number;
+  radiance: number[];
+  vertices: number[][];
+  camera: number[];
+  truncated: boolean;
+};
+const fmt = (v: number[]) =>
+  v.map((x) => (Number.isFinite(x) ? x.toFixed(4) : String(x))).join(', ');
+export default function PathView({ capture }: { capture: Capture }) {
+  const [selected, setSelected] = useState(0),
+    [yaw, setYaw] = useState(0.6),
+    [pitch, setPitch] = useState(0.25);
+  const vertices = capture.vertices,
+    v = vertices[Math.min(selected, vertices.length - 1)];
+  const positions = [
+    [capture.camera[3], capture.camera[7], capture.camera[11]],
+    ...vertices.map((v) => v.slice(0, 3)),
+  ];
+  const center = positions[1] || [0, 0, 0],
+    scale = Math.max(
+      1,
+      ...positions.flatMap((p) => p.map((x, i) => Math.abs(x - center[i]))),
+    );
+  const project = (p: number[]) => {
+    let [x, y, z] = p.map((n, i) => (n - center[i]) / scale);
+    const q = x * Math.sin(yaw) + z * Math.cos(yaw);
+    return [
+      210 + (x * Math.cos(yaw) - z * Math.sin(yaw)) * 155,
+      140 - (y * Math.cos(pitch) - q * Math.sin(pitch)) * 110,
+    ];
+  };
+  return (
+    <div className="path-inspector">
+      <div>
+        <div className="eyebrow">WORLD-SPACE PATH · INDEPENDENT DEBUG CAMERA</div>
+        <svg viewBox="0 0 420 280" role="img" aria-label="World-space captured path">
+          <line x1="20" y1="250" x2="400" y2="250" stroke="#353a40" />
+          {positions.slice(1).map((p, i) => {
+            const a = project(positions[i]),
+              b = project(p);
+            return (
+              <g key={i}>
+                <line
+                  x1={a[0]}
+                  y1={a[1]}
+                  x2={b[0]}
+                  y2={b[1]}
+                  stroke="#9abdaa"
+                  strokeWidth="2"
+                />
+                <circle
+                  cx={b[0]}
+                  cy={b[1]}
+                  r={i === selected ? 6 : 4}
+                  fill={i === selected ? '#e0b76e' : '#9abdaa'}
+                />
+                <text x={b[0] + 9} y={b[1] - 6}>
+                  {i}
+                </text>
+                {vertices[i][31] > 0 &&
+                  (() => {
+                    const n = project(vertices[i].slice(40, 43));
+                    return (
+                      <line
+                        x1={b[0]}
+                        y1={b[1]}
+                        x2={n[0]}
+                        y2={n[1]}
+                        stroke="#e0b76e"
+                        strokeDasharray="4 4"
+                      />
+                    );
+                  })()}
+              </g>
+            );
+          })}
+          <text x="15" y="270">
+            Green: continuation · dashed gold: NEE connection
+          </text>
+        </svg>
+        <label>
+          Debug orbit{' '}
+          <input
+            aria-label="Debug orbit"
+            type="range"
+            min="-3.14"
+            max="3.14"
+            step=".02"
+            value={yaw}
+            onChange={(e) => setYaw(+e.target.value)}
+          />
+        </label>
+        <label>
+          Debug elevation{' '}
+          <input
+            aria-label="Debug elevation"
+            type="range"
+            min="-1.4"
+            max="1.4"
+            step=".02"
+            value={pitch}
+            onChange={(e) => setPitch(+e.target.value)}
+          />
+        </label>
+        <small>
+          Projection of actual world-space positions; no scene mesh overlay. Rendering
+          camera and accumulation are unchanged.
+        </small>
+      </div>
+      <div>
+        <p className="mono">
+          Pixel ({capture.pixel.join(', ')}) · sample #{capture.sample} ·{' '}
+          {vertices.length} vertices
+        </p>
+        <label>
+          Vertex{' '}
+          <select value={selected} onChange={(e) => setSelected(+e.target.value)}>
+            {vertices.map((_, i) => (
+              <option key={i} value={i}>
+                {i}
+              </option>
+            ))}
+          </select>
+        </label>
+        {v ? (
+          <dl className="vertex-data">
+            {[
+              ['Position / world', fmt(v.slice(0, 3))],
+              ['Material / placement', `${v[3]} / ${v[46]}`],
+              ['Incoming / world', fmt(v.slice(12, 15))],
+              ['Outgoing / world', fmt(v.slice(20, 23))],
+              ['Geometric normal', fmt(v.slice(4, 7))],
+              ['Shading normal', fmt(v.slice(8, 11))],
+              ['Throughput at entry', fmt(v.slice(16, 19))],
+              ['BSDF value / local', fmt(v.slice(24, 27))],
+              ['Forward PDF / sr⁻¹', fmt([v[23]])],
+              ['NEE PDF / sr⁻¹', fmt([v[31]])],
+              ['NEE MIS weight', fmt([v[35]])],
+              ['NEE contribution / RGB', fmt(v.slice(32, 35))],
+              ['RR survival / terminated', `${v[39].toFixed(4)} / ${v[47] === 1}`],
+            ].map(([k, value]) => (
+              <div key={k}>
+                <dt>{k}</dt>
+                <dd>{value}</dd>
+              </div>
+            ))}
+          </dl>
+        ) : (
+          <p>Ray escaped without a surface vertex.</p>
+        )}
+        <p className="mono">Sample RGB: {fmt(capture.radiance)}</p>
+        {capture.truncated && <p>Capture capped at 64 vertices; tracing continues.</p>}
+        <small>
+          Zero fields can mean an event was not evaluated (emitter, termination, no valid
+          NEE). Delta BSDF values are not continuous densities. See capture schema in
+          docs.
+        </small>
+      </div>
+    </div>
+  );
 }

@@ -1,42 +1,49 @@
 ---
 layout: ../../layouts/Lesson.astro
-title: Next Event Estimation
+title: 下一事件估计
 section: '05'
 toc:
-  - {id: connection, label: Connect to a light}
-  - {id: measure, label: Use the same measure}
-  - {id: accounting, label: Avoid double counting}
+  - { id: connection, label: 主动连接光源 }
+  - { id: measure, label: 统一概率测度 }
+  - { id: accounting, label: 避免重复计数 }
 ---
-<div className="lesson-kicker">05 / DIRECT LIGHTING</div>
-# Next event estimation
-<p className="lead">Do not wait for a random walk to find the light.<br/>Ask whether it can be seen.</p>
 
-<h2 id="connection">Connect to a light</h2>
+<div className="lesson-kicker">05 / 直接光照</div>
 
-At each non-delta surface vertex, sample a point on an emitter, evaluate its BSDF and geometry, and trace a shadow connection. The contribution is zero when that connection is blocked. This is next event estimation (NEE): a direct-light estimate added to a continuing random walk.
+# 下一事件估计
 
-For a sampled incident direction $\omega_i$, a direct estimator is
+<p className="lead">
+  不必等待随机游走恰好找到光源，
+  <br />
+  主动检查它是否可见。
+</p>
+
+<h2 id="connection">主动连接光源</h2>
+
+在每个非 delta 表面顶点上，主动在发光体上采一个点，求 BSDF 和几何项，并追踪阴影连接。连接被遮挡时，贡献为零。这就是下一事件估计（Next Event Estimation，NEE）：在继续随机游走的同时，增加一个直接光照估计。
+
+对采样的入射方向 $\omega_i$，直接光照估计为：
 
 $$
 \widehat L_d=\frac{f_r(\omega_o,\omega_i)L_e(y,-\omega_i)V(x,y)|n_x\cdot\omega_i|}{p_\omega(\omega_i)}.
 $$
 
-Here $V$ is visibility and the probability includes emitter selection. The runtime chooses uniformly among emitting triangles, then uniformly samples the chosen triangle's area. A square light split into two triangles is therefore two candidates; this is not uniform selection among parser light entities.
+其中 $V$ 表示可见性，采样概率也必须包含发光体选择概率。本 runtime 先在发光三角形之间均匀选择，再在所选三角形上均匀采样面积。因此，拆成两个三角形的正方形光源对应两个候选项，并非按 Parser 中的光源实体均匀选择。
 
-<h2 id="measure">Area and solid angle are different measures</h2>
+<h2 id="measure">面积与立体角是不同的测度</h2>
 
-An area PDF cannot be compared directly to a BSDF PDF. For distance $r=\|y-x\|$, transform it using
+面积 PDF 不能直接与 BSDF 的立体角 PDF 比较。令 $r=\|y-x\|$，使用以下变量变换：
 
 $$
 p_\omega(\omega_i)=p_A(y)\,\frac{r^2}{|n_y\cdot(-\omega_i)|}.
 $$
 
-In this runtime $p_A=1/(N_\mathrm{tri}A_\mathrm{tri})$ for the diffuse Cornell emitter. The shadow ray uses an offset origin and stops before the emitter, avoiding self-intersection. Back-facing one-sided emission contributes zero.
+对于 Cornell 的漫反射面光源，本 runtime 使用 $p_A=1/(N_\mathrm{tri}A_\mathrm{tri})$。阴影射线采用偏移后的起点，并在抵达发光体前终止，以避免自相交。背向的单面发光体贡献为零。
 
-<h2 id="accounting">A second path can describe the same light</h2>
+<h2 id="accounting">避免重复计算同一类光照路径</h2>
 
-The continuing BSDF random walk may hit that same emitter. Adding its full contribution on top of a full NEE contribution would count direct light twice. Two valid choices are to suppress non-delta emitter hits when using NEE alone, or to weight both estimates with MIS. Camera-visible emitters and delta chains need separate treatment because an ordinary continuous light sample cannot construct those paths.
+继续延伸的 BSDF 随机路径也可能命中同一个发光体。如果在完整的 NEE 贡献之外，再累加完整的发光体命中贡献，就会将直接光照计算两次。两种有效做法是：仅使用 NEE 时抑制非 delta 路径的发光体命中，或者用 MIS 对两种估计加权。相机直接可见的发光体与 delta 链需要单独处理，因为普通连续光源采样无法构造这些路径。
 
-The Cornell Lab provides all three modes explicitly. [Continue to the MIS lesson and run the experiment →](../../#renderer)
+Cornell 实验提供了这三种模式。[进入 MIS 课程并运行实验 →](../../#renderer)
 
-Reference: [PBRT 4e — A Better Path Tracer](https://pbr-book.org/4ed/Light_Transport_I_Surface_Reflection/A_Better_Path_Tracer).
+参考：[PBRT 第四版：更好的路径追踪器](https://pbr-book.org/4ed/Light_Transport_I_Surface_Reflection/A_Better_Path_Tracer)。

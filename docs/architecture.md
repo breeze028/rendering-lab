@@ -10,7 +10,7 @@ LightTransport 可复用的是 PDF、BSDF、NEE/MIS、RR 和后续 SVGF 算法�
 
 ## 依赖与构建
 
-`external/pbrt` 是 Git submodule，URL 指向原公开 SDK，固定 gitlink commit `f2dff9d65efb2a3f742680fa62af734c1efdb344`；共享改动发布在 `feat/rendering-lab-observation`，原 `main` 不变。准确提交亦可见 `git ls-tree HEAD external/pbrt`。没有在网站内复制 renderer。
+`external/pbrt` 是 Git submodule，URL 指向原公开 SDK，固定 gitlink commit `d1532df408a5c13b5151787c80aee2055008476e`；共享改动发布在 `feat/rendering-lab-observation`，原 `main` 不变。准确提交亦可见 `git ls-tree HEAD external/pbrt`。没有在网站内复制 renderer。
 
 1. 递归检出固定依赖。
 2. CMake 构建独立 native SDK、consumer packer 与测试。

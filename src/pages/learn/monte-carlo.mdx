@@ -1,42 +1,49 @@
 ---
 layout: ../../layouts/Lesson.astro
-title: Monte Carlo Integration
+title: 蒙特卡洛积分
 section: '04'
 toc:
-  - {id: estimate, label: A weighted average}
-  - {id: assumptions, label: Support and convergence}
-  - {id: try-it, label: Try the experiment}
+  - { id: estimate, label: 用加权平均求积分 }
+  - { id: assumptions, label: 支持域与收敛 }
+  - { id: try-it, label: 动手实验 }
 ---
+
 import SamplingLab from '../../components/SamplingLab';
 
-<div className="lesson-kicker">04 / MONTE CARLO INTEGRATION</div>
-# Integrals from random samples
-<p className="lead">A weighted average can reconstruct an integral.<br/>Its noise tells us where to look next.</p>
+<div className="lesson-kicker">04 / 蒙特卡洛积分</div>
 
-<h2 id="estimate">A weighted average</h2>
+# 用随机样本估计积分
 
-Let $I=\int_D f(x)\,dx$. Draw independent samples $X_j$ from a normalized density $p$. Then
+<p className="lead">
+  加权平均能够重建积分，
+  <br />
+  噪声则提示我们该去哪里采样。
+</p>
+
+<h2 id="estimate">用加权平均求积分</h2>
+
+设 $I=\int_D f(x)\,dx$。从归一化概率密度 $p$ 中独立抽取样本 $X_j$，则：
 
 $$
 \widehat I_N=\frac1N\sum_{j=1}^N\frac{f(X_j)}{p(X_j)},\qquad \mathbb E[\widehat I_N]=I.
 $$
 
-Division by the PDF compensates for how often a region is visited. Where samples are rare, each visit represents more of the domain. Sampling a direction more often without dividing by its PDF changes the integral instead of improving its estimate.
+除以 PDF 是为了补偿不同区域被访问的频率。采样稀少的区域，每次访问需要代表更大的一部分定义域。如果只增加某个方向的采样频率，却不除以对应 PDF，就改变了所求积分，而不是改善对原积分的估计。
 
-<h2 id="assumptions">The assumptions matter</h2>
+<h2 id="assumptions">支持域与收敛条件</h2>
 
-The density must be nonzero wherever the integrand is nonzero, except for sets of zero measure. Finite variance requires $\int f(x)^2/p(x)\,dx<\infty$. Under independent sampling, $\operatorname{Var}[\widehat I_N]=\operatorname{Var}[f(X)/p(X)]/N$. RMS error therefore scales as $N^{-1/2}$ when variance is finite. One particular error curve can rise as more samples arrive; it need not improve monotonically.
+除零测集外，被积函数非零的区域都必须满足 $p(x)>0$。有限方差还要求 $\int f(x)^2/p(x)\,dx<\infty$。在独立采样下，$\operatorname{Var}[\widehat I_N]=\operatorname{Var}[f(X)/p(X)]/N$，因此方差有限时，均方根误差按 $N^{-1/2}$ 缩小。但某一次运行的误差曲线可能随样本增加而上升，并不保证单调改善。
 
-A narrow light creates a useful test: uniform samples spend most of their effort on zero contributions. Importance sampling reshapes the density to place more samples where the integrand is large. If $f$ is nonnegative and we could sample $p=f/I$ exactly, every sample would return $I$—but its normalization already requires solving the integral.
+狭窄光源是很好的例子：均匀采样会把大量预算花在贡献为零的方向上。重要性采样通过重塑密度，让更多样本落在被积函数较大的地方。若 $f$ 非负，且能精确从 $p=f/I$ 采样，每个样本都会返回 $I$；但求出这个分布的归一化常数，本身就需要知道积分。
 
-<h2 id="try-it">Try the weighted average</h2>
+<h2 id="try-it">动手观察加权平均</h2>
 
-Choose Uniform, reduce the light width, and inspect the first eight contributions. Resample several times; the displayed absolute error is a single realization against numerical quadrature, not a variance measurement.
+选择“均匀采样”，缩小光源宽度，检查前八个样本的贡献。多次重新采样，观察结果波动。显示的绝对误差是本次估计与数值积分参考值的差，而不是方差测量。
 
 <SamplingLab client:load />
 
-This one-dimensional model uses a positive Cauchy lobe multiplied by cosine and a rectangular light. The light PDF has valid support because the integrand is zero outside the light interval. All draw counts include zero contributions.
+此一维模型使用正的 Cauchy 波瓣、余弦项与矩形光源的乘积。由于被积函数在光源区间外为零，光源 PDF 的支持域满足要求。采样次数包含所有零贡献样本。
 
-Continue with [Next event estimation](../next-event-estimation/) and [Multiple importance sampling](../../).
+接下来阅读 [下一事件估计](../next-event-estimation/) 与 [多重重要性采样](../../)。
 
-Reference: [PBRT 4e — Monte Carlo integration](https://pbr-book.org/4ed/Monte_Carlo_Integration).
+参考：[PBRT 第四版：蒙特卡洛积分](https://pbr-book.org/4ed/Monte_Carlo_Integration)。

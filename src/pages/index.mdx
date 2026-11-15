@@ -1,0 +1,104 @@
+---
+layout: ../layouts/Lesson.astro
+title: Multiple Importance Sampling
+section: '05'
+toc:
+  - {id: the-problem, label: Two ways to find light}
+  - {id: sampling, label: Build an intuition}
+  - {id: estimator, label: Combine the estimators}
+  - {id: renderer, label: Into the Cornell Box}
+  - {id: implementation, label: Read the real code}
+  - {id: boundaries, label: What this proves}
+  - {id: references, label: Further reading}
+---
+import SamplingLab from '../components/SamplingLab';
+import RendererLab from '../components/RendererLab';
+import {Code} from 'astro:components';
+import {snippet} from '../lib/source';
+import bsdf from '../../external/pbrt/web/src/shaders/bsdf.wgsl?raw';
+import integrator from '../../external/pbrt/web/src/shaders/integrator.wgsl?raw';
+
+<div className="lesson-kicker">05 / IMPORTANCE SAMPLING <span>THEORY + INTERACTIVE LAB</span></div>
+# Multiple Importance Sampling
+<p className="lead">Two imperfect ways to find light.<br/>One much better estimator.</p>
+<p className="lesson-meta">Monte Carlo → Next event estimation → MIS <span>•</span> Intermediate <span>•</span> WGSL / WebGPU</p>
+<div className="learning-note"><span>THE QUESTION</span>Why can sampling more intelligently still give us a noisy image?</div>
+
+<h2 id="the-problem"><span className="section-number">01</span> Two ways to find light</h2>
+
+A path tracer estimates light arriving at the camera by following randomly sampled directions. At a surface, the direct-lighting problem is an integral over the hemisphere:
+
+$$
+L_o(\omega_o)=\int_{\Omega^+} f_r(\omega_o,\omega_i)\,L_i(\omega_i)\,|n\cdot\omega_i|\,d\omega_i.
+$$
+
+The integrand is a product. A direction matters when **both** the BSDF and incoming light are large. Sampling the BSDF follows the material's preferred directions, but may rarely find a small light. Sampling the light finds the emitter, but may miss a narrow reflection lobe.
+
+There is no single sampling distribution that wins in every configuration. Multiple importance sampling (MIS) combines techniques, using the PDF of **every competing technique at the direction actually sampled** to decide how much to trust each contribution.
+
+<div className="prerequisite">Before continuing: know what a PDF is and why an estimate divides by it. Read <a href="./learn/monte-carlo/">Monte Carlo integration ↗</a> and <a href="./learn/next-event-estimation/">next event estimation ↗</a> if needed.</div>
+
+<h2 id="sampling"><span className="section-number">02</span> Build an intuition</h2>
+
+Make the light smaller. Then narrow the BSDF lobe. Watch the distributions pull in different directions, and inspect the estimate beneath the plot. Marks on the horizontal axis are actual generated samples; the estimate includes zero contributions too.
+
+<SamplingLab client:load />
+
+This is deliberately a **one-dimensional model**, not a physically complete surface integral. Here $x=\theta/(\pi/2)$, the BSDF proxy is a truncated Cauchy density centered at 0.32, the cosine PDF is $p_c(x)=\frac\pi2\cos(\pi x/2)$, and the light is a box centered at 0.68. The integrand is $f(x)=p_b(x)\cos(\pi x/2)\mathbf1_{\text{light}}(x)$. Every density integrates to one. The displayed reference is 8192-point midpoint quadrature over the light interval.
+
+Uniform and cosine sampling have full support. Light sampling has restricted support, which is valid here because the integrand vanishes outside the light. That assumption does not hold for a full indirect-lighting estimator. The lobe and light-width sliders affect this model only; they do not edit the Cornell scene.
+
+<h2 id="estimator"><span className="section-number">03</span> Combine the estimators</h2>
+
+For independent samples $X_{i,j}\sim p_i$, the multi-sample MIS estimator is:
+
+$$
+\widehat I=\sum_i\frac1{n_i}\sum_{j=1}^{n_i}w_i(X_{i,j})\frac{f(X_{i,j})}{p_i(X_{i,j})},\qquad w_i(x)=\frac{(n_i p_i(x))^\beta}{\sum_k(n_kp_k(x))^\beta}.
+$$
+
+The weights must sum to one wherever the integrand is nonzero; a technique with zero PDF receives zero weight. With $\beta=2$, this is the **power heuristic**. The renderer takes one light sample and one BSDF continuation at a non-delta vertex, so $n_b=n_l=1$. Both PDFs must be expressed in the same measure: solid angle here, in sr⁻¹.
+
+The plot uses a different, explicitly counted budget: one technique is randomly selected with probability 1/2 for each draw. Its contribution is $2w_i(x)f(x)/p_i(x)$. Thus 256 draws really means 256 directions, not 256 pairs. Its MIS result should not be compared as if it had the renderer's per-vertex cost.
+
+When the light PDF is high and the BSDF PDF is low, the light sample gets most of the weight. If a BSDF sample reaches a difficult glossy reflection that light sampling would almost never find, the BSDF sample gets most of the weight. **MIS allocates trust, not energy.** It is still estimating the same integral.
+
+<h2 id="cornell-intro"><span className="section-number">04</span> Into the Cornell Box</h2>
+
+Now run the actual estimator. Start with 16 SPP and compare BSDF only, light/NEE, and MIS at the same maximum depth. Resetting starts the same deterministic seed schedule. A change in noise is produced by the algorithm, not a display filter.
+
+<RendererLab client:load />
+
+**BSDF only** disables NEE and gives unweighted emitter hits. **Light/NEE** disables MIS and suppresses non-delta continuation hits on sampled emitters, preventing double counting. Camera and delta-chain emitter hits remain. **MIS** combines both branches with power weights. This benchmark counts maximum depth as scattering vertices and still evaluates terminal emission. At depth one all three strategies target direct lighting at the first surface. The opt-in convention leaves the older Scene Lab defaults intact.
+
+Click the image to select a pixel, then open the path inspector. A pixel is a family of samples, not one ray. The replay uses a specific zero-based sample index and the current estimator, seed and camera. Its world-space view has an independent debug orbit: inspecting a path does not rotate the rendering camera or reset the film. Opening the full Lab changes only layout and retains GPU accumulation.
+
+<h2 id="implementation"><span className="section-number">05</span> Read the real code</h2>
+
+The following snippets are extracted **at build time from the same WGSL files imported by the runtime**. The power function rescales the PDFs before squaring, avoiding overflow for large densities:
+
+<Code code={bsdf.slice(bsdf.indexOf('fn power('),bsdf.indexOf('fn invalid_scatter'))} lang="wgsl" />
+
+The NEE branch evaluates both PDFs in solid angle, traces the real shadow connection, and adds its weighted direct contribution:
+
+<Code code={snippet(integrator,'nee')} lang="wgsl" />
+
+The complementary BSDF-hit weighting is equally essential. Adding weighted NEE while leaving all emitter hits at weight one would count the same direct path twice:
+
+<Code code={integrator.slice(integrator.indexOf('fn hit_weight'),integrator.indexOf('fn trace('))} lang="wgsl" />
+
+<h2 id="boundaries"><span className="section-number">06</span> What this experiment proves</h2>
+
+The benchmark uses the original Cornell diffuse materials and area emitter. Contribution clamping is **disabled**. No glass, coat, volumetric or spectral material is needed, avoiding the runtime's straight-through glass shadows, approximate coat model, and RGB spectral approximations in this lesson.
+
+The image is accumulated in linear RGB. Final display uses the runtime's exponential tone map and gamma 2.2; AOVs bypass that display transform and show their defined encoding directly. Primary AOVs use pixel-center rays without antialias jitter and return black on a miss. Switching AOV resets that view's film; layout and exposure changes do not reset it.
+
+A single noisy image does not establish variance or convergence rate. Equal SPP does not mean equal time or ray count. We do not display invented GPU timings or claim image error without a matched linear reference. Finite path depth changes the target transport sum; RR compensates surviving paths, but cannot recover deliberately truncated bounces.
+
+<h2 id="references"><span className="section-number">07</span> Keep following the light</h2>
+
+- [PBRT 4e — Improving Efficiency / MIS](https://pbr-book.org/4ed/Monte_Carlo_Integration/Improving_Efficiency): estimator, support requirements, balance and power heuristics.
+- [PBRT 4e — A Better Path Tracer](https://pbr-book.org/4ed/Light_Transport_I_Surface_Reflection/A_Better_Path_Tracer): complementary emitter and direct-light weights.
+- [Veach, Robust Monte Carlo Methods for Light Transport Simulation](https://graphics.stanford.edu/papers/veach_thesis/): Chapter 9, the deeper statistical foundation.
+- [The shared runtime](https://github.com/breeze028/pbrt-v4-parser/tree/feat/rendering-lab-observation/web): inspect the implementation and its approximation boundaries.
+
+<div className="next-lesson"><span>CONTINUE EXPLORING</span><a href="./roadmap/">From camera paths to bidirectional transport <span>→</span></a></div>

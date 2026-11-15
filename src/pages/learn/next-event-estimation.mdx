@@ -1,0 +1,42 @@
+---
+layout: ../../layouts/Lesson.astro
+title: Next Event Estimation
+section: '05'
+toc:
+  - {id: connection, label: Connect to a light}
+  - {id: measure, label: Use the same measure}
+  - {id: accounting, label: Avoid double counting}
+---
+<div className="lesson-kicker">05 / DIRECT LIGHTING</div>
+# Next event estimation
+<p className="lead">Do not wait for a random walk to find the light.<br/>Ask whether it can be seen.</p>
+
+<h2 id="connection">Connect to a light</h2>
+
+At each non-delta surface vertex, sample a point on an emitter, evaluate its BSDF and geometry, and trace a shadow connection. The contribution is zero when that connection is blocked. This is next event estimation (NEE): a direct-light estimate added to a continuing random walk.
+
+For a sampled incident direction $\omega_i$, a direct estimator is
+
+$$
+\widehat L_d=\frac{f_r(\omega_o,\omega_i)L_e(y,-\omega_i)V(x,y)|n_x\cdot\omega_i|}{p_\omega(\omega_i)}.
+$$
+
+Here $V$ is visibility and the probability includes emitter selection. The runtime chooses uniformly among emitting triangles, then uniformly samples the chosen triangle's area. A square light split into two triangles is therefore two candidates; this is not uniform selection among parser light entities.
+
+<h2 id="measure">Area and solid angle are different measures</h2>
+
+An area PDF cannot be compared directly to a BSDF PDF. For distance $r=\|y-x\|$, transform it using
+
+$$
+p_\omega(\omega_i)=p_A(y)\,\frac{r^2}{|n_y\cdot(-\omega_i)|}.
+$$
+
+In this runtime $p_A=1/(N_\mathrm{tri}A_\mathrm{tri})$ for the diffuse Cornell emitter. The shadow ray uses an offset origin and stops before the emitter, avoiding self-intersection. Back-facing one-sided emission contributes zero.
+
+<h2 id="accounting">A second path can describe the same light</h2>
+
+The continuing BSDF random walk may hit that same emitter. Adding its full contribution on top of a full NEE contribution would count direct light twice. Two valid choices are to suppress non-delta emitter hits when using NEE alone, or to weight both estimates with MIS. Camera-visible emitters and delta chains need separate treatment because an ordinary continuous light sample cannot construct those paths.
+
+The Cornell Lab provides all three modes explicitly. [Continue to the MIS lesson and run the experiment →](../../#renderer)
+
+Reference: [PBRT 4e — A Better Path Tracer](https://pbr-book.org/4ed/Light_Transport_I_Surface_Reflection/A_Better_Path_Tracer).

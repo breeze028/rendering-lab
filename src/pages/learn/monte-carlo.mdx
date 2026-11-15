@@ -1,0 +1,42 @@
+---
+layout: ../../layouts/Lesson.astro
+title: Monte Carlo Integration
+section: '04'
+toc:
+  - {id: estimate, label: A weighted average}
+  - {id: assumptions, label: Support and convergence}
+  - {id: try-it, label: Try the experiment}
+---
+import SamplingLab from '../../components/SamplingLab';
+
+<div className="lesson-kicker">04 / MONTE CARLO INTEGRATION</div>
+# Integrals from random samples
+<p className="lead">A weighted average can reconstruct an integral.<br/>Its noise tells us where to look next.</p>
+
+<h2 id="estimate">A weighted average</h2>
+
+Let $I=\int_D f(x)\,dx$. Draw independent samples $X_j$ from a normalized density $p$. Then
+
+$$
+\widehat I_N=\frac1N\sum_{j=1}^N\frac{f(X_j)}{p(X_j)},\qquad \mathbb E[\widehat I_N]=I.
+$$
+
+Division by the PDF compensates for how often a region is visited. Where samples are rare, each visit represents more of the domain. Sampling a direction more often without dividing by its PDF changes the integral instead of improving its estimate.
+
+<h2 id="assumptions">The assumptions matter</h2>
+
+The density must be nonzero wherever the integrand is nonzero, except for sets of zero measure. Finite variance requires $\int f(x)^2/p(x)\,dx<\infty$. Under independent sampling, $\operatorname{Var}[\widehat I_N]=\operatorname{Var}[f(X)/p(X)]/N$. RMS error therefore scales as $N^{-1/2}$ when variance is finite. One particular error curve can rise as more samples arrive; it need not improve monotonically.
+
+A narrow light creates a useful test: uniform samples spend most of their effort on zero contributions. Importance sampling reshapes the density to place more samples where the integrand is large. If $f$ is nonnegative and we could sample $p=f/I$ exactly, every sample would return $I$—but its normalization already requires solving the integral.
+
+<h2 id="try-it">Try the weighted average</h2>
+
+Choose Uniform, reduce the light width, and inspect the first eight contributions. Resample several times; the displayed absolute error is a single realization against numerical quadrature, not a variance measurement.
+
+<SamplingLab client:load />
+
+This one-dimensional model uses a positive Cauchy lobe multiplied by cosine and a rectangular light. The light PDF has valid support because the integrand is zero outside the light interval. All draw counts include zero contributions.
+
+Continue with [Next event estimation](../next-event-estimation/) and [Multiple importance sampling](../../).
+
+Reference: [PBRT 4e — Monte Carlo integration](https://pbr-book.org/4ed/Monte_Carlo_Integration).

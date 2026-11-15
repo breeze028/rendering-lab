@@ -1,0 +1,29 @@
+---
+layout: ../layouts/Lesson.astro
+title: The Learning Path
+section: '00'
+---
+<div className="lesson-kicker">RENDERING LAB / THE LEARNING PATH</div>
+# Follow the dependencies
+<p className="lead">A small set of complete experiments.<br/>A clear route toward deeper transport.</p>
+
+The first release connects [Monte Carlo integration](../learn/monte-carlo/), [NEE](../learn/next-event-estimation/) and [MIS](../). Other sidebar modules are planned topics, not finished lessons.
+
+<ol className="roadmap-list">
+<li>Geometry → rays, intersections, world and local frames.</li>
+<li>Radiometry → units and the rendering equation.</li>
+<li>BSDF → sampling, densities and delta distributions.</li>
+<li>Monte Carlo → importance sampling → NEE → MIS. The current complete example.</li>
+<li>Path tracing → film statistics, contribution decomposition, reference images.</li>
+<li>BDPT → camera and light subpaths, forward/reverse area densities, strategy weights.</li>
+<li>Photon mapping / SPPM → photon emission, spatial index, radius/flux update, photons as the budget.</li>
+<li>PSSMLT / MLT → primary samples, mutations, bootstrap normalization, acceptance and chain diagnostics.</li>
+<li>Advanced materials → validate energy and sampling before new visual models.</li>
+<li>Volumes → free-flight distances, transmittance, phase functions and medium boundaries.</li>
+<li>Reconstruction / denoising → first-hit guides, temporal reprojection, disocclusion, linear HDR references.</li>
+<li>Differentiable rendering → parameter contracts, visibility discontinuities, gradient validation.</li>
+</ol>
+
+Future integrators own initialization, multiple dispatch stages, persistent state, reset and disposal. The existing megakernel remains the first implementation. We will compare rays, photons, mutations and wall-clock measurements explicitly; these are not interchangeable SPP counters.
+
+The C++ parser remains in [pbrt-v4-parser](https://github.com/breeze028/pbrt-v4-parser). This website owns lessons, UI, experiments and session adapters. Source, build instructions and evidence are in [the project repository](https://github.com/breeze028/rendering-lab).

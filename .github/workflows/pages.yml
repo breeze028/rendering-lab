@@ -1,0 +1,68 @@
+name: Verify and deploy Rendering Lab
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: rendering-lab-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          submodules: recursive
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm ci --prefix external/pbrt/web
+      - name: Build and test independent native SDK
+        run: |
+          cmake -S external/pbrt -B external/pbrt/build-web-native -DCMAKE_BUILD_TYPE=Release -DPBRT4_BUILD_WEB=ON
+          cmake --build external/pbrt/build-web-native --parallel 4
+          ctest --test-dir external/pbrt/build-web-native --output-on-failure
+      - name: Install pinned single-thread WASM toolchain
+        run: |
+          git init external/pbrt/.reference/emsdk
+          git -C external/pbrt/.reference/emsdk remote add origin https://github.com/emscripten-core/emsdk.git
+          git -C external/pbrt/.reference/emsdk fetch --depth 1 origin 708dcbcc9ee23bc7d2dad44fc90db377e38b771c
+          git -C external/pbrt/.reference/emsdk checkout --detach FETCH_HEAD
+          external/pbrt/.reference/emsdk/emsdk install 7.0.0
+          external/pbrt/.reference/emsdk/emsdk activate 7.0.0
+      - run: npm run build:wasm --prefix external/pbrt/web
+      - run: npm run prepare:assets --prefix external/pbrt/web
+      - run: npm test --prefix external/pbrt/web
+      - run: npm run typecheck --prefix external/pbrt/web
+      - run: npm test
+      - run: npm run typecheck
+      - run: npm run build
+      - name: Verify production subpath and original resource checksums
+        run: |
+          npm run preview -- --port 4321 > /tmp/rendering-lab.log 2>&1 &
+          server=$!
+          trap 'kill "$server"' EXIT
+          for i in {1..30}; do curl -sf http://127.0.0.1:4321/rendering-lab/ > /dev/null && break; sleep 1; done
+          node scripts/check-http.mjs http://127.0.0.1:4321/rendering-lab/
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        with:
+          path: dist
+  deploy:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128
+        id: deployment

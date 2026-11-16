@@ -3,6 +3,8 @@ import { Renderer } from '../../external/pbrt/web/src/renderer/renderer';
 import type { Loaded } from '../../external/pbrt/web/src/model';
 import PathView, { type Capture } from './PathView';
 import { debugViews } from '../lib/session';
+import { renderCameraControls } from '../lib/render-camera-controls';
+import type { DebugScene } from '../../external/pbrt/web/src/renderer/debug-scene';
 export default function RendererLab() {
   const canvas = useRef<HTMLCanvasElement>(null),
     renderer = useRef<Renderer | null>(null);
@@ -22,6 +24,8 @@ export default function RendererLab() {
     [sample, setSample] = useState(0),
     [capture, setCapture] = useState<Capture | null>(null),
     [busy, setBusy] = useState(false);
+  const captureRequest = useRef(0);
+  const [scene, setScene] = useState<DebugScene | null>(null);
   const [gpu, setGpu] = useState(''),
     [checks, setChecks] = useState(''),
     [sceneInfo, setSceneInfo] = useState('');
@@ -46,6 +50,11 @@ export default function RendererLab() {
   }, [full]);
   useEffect(() => {
     if (!started || !canvas.current) return;
+    setReady(false);
+    setScene(null);
+    setCapture(null);
+    setBusy(false);
+    captureRequest.current++;
     let alive = true;
     let worker: Worker | undefined;
     const r = new Renderer(
@@ -95,6 +104,7 @@ export default function RendererLab() {
               setSceneInfo(
                 `${loaded.metadata.counts.triangles ?? '—'} triangles · C++ parser / WASM`,
               );
+              setScene(r.getDebugScene());
               setGpu(r.gpuName);
               setReady(true);
               setError(false);
@@ -125,6 +135,7 @@ export default function RendererLab() {
     })();
     return () => {
       alive = false;
+      captureRequest.current++;
       worker?.terminate();
       r.destroy();
       renderer.current = null;
@@ -133,6 +144,7 @@ export default function RendererLab() {
   useEffect(() => {
     const r = renderer.current;
     if (!r || !ready) return;
+    captureRequest.current++;
     r.samplingMode = mode;
     r.depth = depth;
     r.aov = aov;
@@ -152,18 +164,42 @@ export default function RendererLab() {
   useEffect(() => {
     if (renderer.current) renderer.current.exposure = exposure;
   }, [exposure]);
+  useEffect(() => {
+    if (!ready || !canvas.current || !renderer.current) return;
+    return renderCameraControls(
+      canvas.current,
+      renderer.current,
+      (pixel) => {
+        setPixel(pixel);
+        setCapture(null);
+      },
+      () => {
+        captureRequest.current++;
+        setBusy(false);
+        setCapture(null);
+        setPaused(false);
+        setError(false);
+        setStatus('成像相机已移动，正在重新累积');
+      },
+    );
+  }, [ready]);
   const captureNow = async () => {
     const r = renderer.current;
     if (!r) return;
+    const request = ++captureRequest.current;
     setBusy(true);
     try {
-      setCapture(await r.capturePath(pixel[0], pixel[1], sample));
+      const result = await r.capturePath(pixel[0], pixel[1], sample);
+      if (request !== captureRequest.current) return;
+      setCapture(result);
       setStatus(`Captured actual GPU sample #${sample}`);
     } catch (e) {
-      setError(true);
-      setStatus(String(e));
+      if (request === captureRequest.current) {
+        setError(true);
+        setStatus(String(e));
+      }
     } finally {
-      setBusy(false);
+      if (request === captureRequest.current) setBusy(false);
     }
   };
   return (
@@ -187,14 +223,7 @@ export default function RendererLab() {
             <canvas
               ref={canvas}
               aria-label="Live WebGPU Cornell Box; click to select a pixel"
-              onClick={(e) => {
-                const rect = e.currentTarget.getBoundingClientRect();
-                setPixel([
-                  Math.min(383, Math.floor(((e.clientX - rect.left) / rect.width) * 384)),
-                  Math.min(383, Math.floor(((e.clientY - rect.top) / rect.height) * 384)),
-                ]);
-                setCapture(null);
-              }}
+              tabIndex={0}
             />
             {!ready && (
               <div className="viewport-message">
@@ -263,6 +292,24 @@ export default function RendererLab() {
               }}
             >
               Reset
+            </button>
+          </div>
+          <div className="camera-help">
+            左键拖动旋转成像相机 · 右键／Shift 拖动平移 · 滚轮前后移动 · 单击选择像素
+            <button
+              disabled={!ready}
+              onClick={() => {
+                const r = renderer.current;
+                if (!r?.metadata) return;
+                r.camera = [...r.metadata.camera.transform];
+                r.reset();
+                captureRequest.current++;
+                setBusy(false);
+                setCapture(null);
+                setPaused(false);
+              }}
+            >
+              重置相机
             </button>
           </div>
         </div>
@@ -392,13 +439,17 @@ export default function RendererLab() {
             {busy ? 'Capturing…' : 'Capture GPU path'}
           </button>
         </div>
-        {capture && (
-          <PathView key={`${capture.pixel}-${capture.sample}`} capture={capture} />
+        {capture && scene && (
+          <PathView
+            key={`${capture.pixel}-${capture.sample}`}
+            capture={capture}
+            scene={scene}
+          />
         )}
         <p className="control-note">
           Replay uses the current camera, seed 1 and estimator. It neither advances nor
-          resets the film. Changing estimator/depth invalidates the capture. Samples
-          beyond current SPP are deterministic previews.
+          resets the film. Changing camera/estimator/depth invalidates the capture.
+          Samples beyond current SPP are deterministic previews.
         </p>
       </details>
       <details className="diagnostics">

@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import type { DebugScene } from '../../external/pbrt/web/src/renderer/debug-scene';
+import type { PathSceneView } from '../lib/path-scene-view';
 export type Capture = {
   pixel: number[];
   sample: number;
@@ -6,108 +8,111 @@ export type Capture = {
   vertices: number[][];
   camera: number[];
   truncated: boolean;
+  fov?: number;
 };
 const fmt = (v: number[]) =>
   v.map((x) => (Number.isFinite(x) ? x.toFixed(4) : String(x))).join(', ');
-export default function PathView({ capture }: { capture: Capture }) {
-  const [selected, setSelected] = useState(0),
-    [yaw, setYaw] = useState(0.6),
-    [pitch, setPitch] = useState(0.25);
-  const vertices = capture.vertices,
-    v = vertices[Math.min(selected, vertices.length - 1)];
-  const positions = [
-    [capture.camera[3], capture.camera[7], capture.camera[11]],
-    ...vertices.map((v) => v.slice(0, 3)),
-  ];
-  const center = positions[1] || [0, 0, 0],
-    scale = Math.max(
-      1,
-      ...positions.flatMap((p) => p.map((x, i) => Math.abs(x - center[i]))),
-    );
-  const project = (p: number[]) => {
-    let [x, y, z] = p.map((n, i) => (n - center[i]) / scale);
-    const q = x * Math.sin(yaw) + z * Math.cos(yaw);
-    return [
-      210 + (x * Math.cos(yaw) - z * Math.sin(yaw)) * 155,
-      140 - (y * Math.cos(pitch) - q * Math.sin(pitch)) * 110,
-    ];
-  };
+export default function PathView({
+  capture,
+  scene,
+}: {
+  capture: Capture;
+  scene: DebugScene;
+}) {
+  const [selected, setSelected] = useState(0);
+  const [cutaway, setCutaway] = useState(true);
+  const [nee, setNee] = useState(true);
+  const [xray, setXray] = useState(true);
+  const [viewReady, setViewReady] = useState(false);
+  const [viewerError, setViewerError] = useState('');
+  const host = useRef<HTMLDivElement>(null);
+  const viewer = useRef<PathSceneView | null>(null);
+  const vertices = capture.vertices;
+  const v = vertices[Math.min(selected, vertices.length - 1)];
+  useEffect(() => {
+    let alive = true;
+    setViewReady(false);
+    setViewerError('');
+    void import('../lib/path-scene-view')
+      .then(({ PathSceneView }) => {
+        if (!alive || !host.current) return;
+        viewer.current = new PathSceneView(host.current, scene, capture, setSelected);
+        setViewReady(true);
+      })
+      .catch((error) => {
+        if (alive) setViewerError(String(error));
+      });
+    return () => {
+      alive = false;
+      viewer.current?.dispose();
+      viewer.current = null;
+    };
+  }, [scene, capture]);
+  useEffect(() => {
+    viewer.current?.select(selected);
+  }, [selected, viewReady]);
+  useEffect(() => {
+    viewer.current?.options(cutaway, nee, xray);
+  }, [cutaway, nee, xray, viewReady]);
   return (
     <div className="path-inspector">
-      <div>
-        <div className="eyebrow">WORLD-SPACE PATH · INDEPENDENT DEBUG CAMERA</div>
-        <svg viewBox="0 0 420 280" role="img" aria-label="World-space captured path">
-          <line x1="20" y1="250" x2="400" y2="250" stroke="#353a40" />
-          {positions.slice(1).map((p, i) => {
-            const a = project(positions[i]),
-              b = project(p);
-            return (
-              <g key={i}>
-                <line
-                  x1={a[0]}
-                  y1={a[1]}
-                  x2={b[0]}
-                  y2={b[1]}
-                  stroke="#9abdaa"
-                  strokeWidth="2"
-                />
-                <circle
-                  cx={b[0]}
-                  cy={b[1]}
-                  r={i === selected ? 6 : 4}
-                  fill={i === selected ? '#e0b76e' : '#9abdaa'}
-                />
-                <text x={b[0] + 9} y={b[1] - 6}>
-                  {i}
-                </text>
-                {vertices[i][31] > 0 &&
-                  (() => {
-                    const n = project(vertices[i].slice(40, 43));
-                    return (
-                      <line
-                        x1={b[0]}
-                        y1={b[1]}
-                        x2={n[0]}
-                        y2={n[1]}
-                        stroke="#e0b76e"
-                        strokeDasharray="4 4"
-                      />
-                    );
-                  })()}
-              </g>
-            );
-          })}
-          <text x="15" y="270">
-            Green: continuation · dashed gold: NEE connection
-          </text>
-        </svg>
-        <label>
-          Debug orbit{' '}
-          <input
-            aria-label="Debug orbit"
-            type="range"
-            min="-3.14"
-            max="3.14"
-            step=".02"
-            value={yaw}
-            onChange={(e) => setYaw(+e.target.value)}
-          />
-        </label>
-        <label>
-          Debug elevation{' '}
-          <input
-            aria-label="Debug elevation"
-            type="range"
-            min="-1.4"
-            max="1.4"
-            step=".02"
-            value={pitch}
-            onChange={(e) => setPitch(+e.target.value)}
-          />
-        </label>
+      <div className="path-scene-column">
+        <div className="eyebrow">原场景 · 世界空间路径 · 独立调试相机</div>
+        <div ref={host} className="path-scene-viewport" data-ready={viewReady}>
+          {!viewReady && (
+            <span className="path-scene-message">
+              {viewerError || '正在创建三维场景视图…'}
+            </span>
+          )}
+        </div>
+        <div className="path-scene-tools">
+          <button disabled={!viewReady} onClick={() => viewer.current?.reset()}>
+            回到捕获视角
+          </button>
+          <button disabled={!viewReady} onClick={() => viewer.current?.fit()}>
+            查看全场景
+          </button>
+          <button
+            disabled={!viewReady || !vertices.length}
+            onClick={() => viewer.current?.focus(selected)}
+          >
+            聚焦选中顶点
+          </button>
+        </div>
+        <div className="path-scene-options">
+          <label>
+            <input
+              type="checkbox"
+              checked={cutaway}
+              onChange={(e) => setCutaway(e.target.checked)}
+            />
+            剖视（隐藏背面）
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={nee}
+              onChange={(e) => setNee(e.target.checked)}
+            />
+            NEE 连接
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={xray}
+              onChange={(e) => setXray(e.target.checked)}
+            />
+            遮挡路径虚线
+          </label>
+        </div>
         <small>
-          Projection of actual world-space positions; no scene mesh overlay. Rendering
-          camera and accumulation are unchanged.
+          左键拖动旋转 · 右键／Shift 拖动平移 ·
+          滚轮缩放。可点击顶点选中。绿色实线为路径，暗绿虚线穿透遮挡；金色／红色虚线为可见／被遮挡的
+          NEE 连接，蓝点为成像相机。
+        </small>
+        <small>
+          场景几何和颜色来自同一份已加载的 GPU
+          场景数据；此处为诊断用光栅视图，不是另一份路径追踪结果。调试视角不会改变成像相机、样本或累积。
         </small>
       </div>
       <div>

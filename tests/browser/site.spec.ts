@@ -93,6 +93,10 @@ test('course math, real GPU rendering, AOVs, deterministic path and film preserv
   await page.locator('.capture-panel summary').click();
   await page.getByRole('button', { name: 'Capture GPU path' }).click();
   await expect(page.locator('.path-inspector')).toBeVisible();
+  await expect(page.locator('.path-scene-viewport')).toHaveAttribute(
+    'data-ready',
+    'true',
+  );
   await page.screenshot({ path: 'test-results/path-inspector.png', fullPage: true });
   expect(errors).toEqual([]);
   console.log(
@@ -102,6 +106,133 @@ test('course math, real GPU rendering, AOVs, deterministic path and film preserv
       gpuChecks: gpu.checks,
       capturedVertices: first.capture.vertices.length,
     }),
+  );
+});
+
+test('mouse camera, world-space scene path and independent debug camera', async ({
+  page,
+}) => {
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  page.on('console', (m) => {
+    if (m.type() === 'error') errors.push(m.text());
+  });
+  await page.goto('?verify=1');
+  await page.waitForFunction(
+    () => document.querySelectorAll('astro-island[ssr]').length === 0,
+  );
+  await page.getByRole('button', { name: 'Start WebGPU experiment' }).click();
+  await page.waitForFunction(() => Boolean((window as any).__rl?.sample));
+  await page.getByRole('button', { name: 'Open full Lab' }).click();
+  const film = page.locator('.viewport canvas');
+  await film.scrollIntoViewIfNeeded();
+  const rect = (await film.boundingBox())!;
+  const original = await page.evaluate(() => {
+    const r = (window as any).__rl;
+    r.paused = true;
+    return { camera: [...r.camera], serial: r.serial };
+  });
+  await page.mouse.move(rect.x + rect.width * 0.5, rect.y + rect.height * 0.5);
+  await page.mouse.down();
+  await page.mouse.move(rect.x + rect.width * 0.5 + 45, rect.y + rect.height * 0.5 + 18, {
+    steps: 8,
+  });
+  await page.mouse.up();
+  const moved = await page.evaluate(() => {
+    const r = (window as any).__rl;
+    return { camera: [...r.camera], serial: r.serial };
+  });
+  expect(moved.camera).not.toEqual(original.camera);
+  expect(moved.serial).toBeGreaterThan(original.serial);
+  await page.mouse.wheel(0, -100);
+  await expect
+    .poll(() => page.evaluate(() => (window as any).__rl.camera))
+    .not.toEqual(moved.camera);
+  await page.getByRole('button', { name: '重置相机', exact: true }).click();
+  expect(await page.evaluate(() => (window as any).__rl.camera)).toEqual(original.camera);
+  await page.waitForFunction(() => (window as any).__rl.sample >= 8);
+  await page.evaluate(() => {
+    (window as any).__rl.paused = true;
+  });
+  await film.click({ position: { x: rect.width * 0.6, y: rect.height * 0.6 } });
+  expect(await page.evaluate(() => (window as any).__rl.camera)).toEqual(original.camera);
+  await page.locator('.capture-panel summary').click();
+  await page.getByLabel('Pixel x', { exact: true }).fill('312');
+  await page.getByLabel('Pixel y', { exact: true }).fill('276');
+  await page.getByRole('button', { name: 'Capture GPU path' }).click();
+  await expect(page.locator('.path-scene-viewport')).toHaveAttribute(
+    'data-ready',
+    'true',
+  );
+  const stable = await page.evaluate(async () => {
+    const r = (window as any).__rl,
+      hdr = await r.readHdr(),
+      scene = r.getDebugScene();
+    return {
+      camera: [...r.camera],
+      spp: r.sample,
+      serial: r.serial,
+      film: [...hdr.rgb],
+      meshes: scene.meshes.length,
+      triangles: scene.meshes.reduce(
+        (n: number, m: any) => n + m.positions.length / 9,
+        0,
+      ),
+    };
+  });
+  expect(stable.meshes).toBe(8);
+  expect(stable.triangles).toBe(36);
+  await page.getByRole('button', { name: '查看全场景' }).click();
+  const debug = page.getByLabel('场景中的三维采样路径');
+  await debug.scrollIntoViewIfNeeded();
+  const before = await debug.screenshot();
+  const d = (await debug.boundingBox())!;
+  await page.mouse.move(d.x + d.width * 0.5, d.y + d.height * 0.5);
+  await page.mouse.down();
+  await page.mouse.move(d.x + d.width * 0.5 + 95, d.y + d.height * 0.5 + 40, {
+    steps: 12,
+  });
+  await page.mouse.up();
+  const after = await debug.screenshot();
+  expect(after.equals(before)).toBe(false);
+  await page.mouse.down({ button: 'right' });
+  await page.mouse.move(d.x + d.width * 0.5 + 120, d.y + d.height * 0.5 + 25, {
+    steps: 5,
+  });
+  await page.mouse.up({ button: 'right' });
+  await page.mouse.wheel(0, -120);
+  await page.getByRole('button', { name: '聚焦选中顶点' }).click();
+  const final = await page.evaluate(async () => {
+    const r = (window as any).__rl;
+    return {
+      camera: [...r.camera],
+      spp: r.sample,
+      serial: r.serial,
+      film: [...(await r.readHdr()).rgb],
+    };
+  });
+  expect(final).toEqual({
+    camera: stable.camera,
+    spp: stable.spp,
+    serial: stable.serial,
+    film: stable.film,
+  });
+  await page.getByRole('button', { name: '查看全场景' }).click();
+  await debug.screenshot({ path: 'test-results/scene-path.png' });
+  await page.getByRole('button', { name: '回到捕获视角' }).click();
+  await debug.screenshot({ path: 'test-results/scene-path-camera.png' });
+  await page.getByRole('checkbox', { name: 'NEE 连接' }).uncheck();
+  await page.getByRole('checkbox', { name: '遮挡路径虚线' }).uncheck();
+  await page.getByRole('checkbox', { name: '剖视（隐藏背面）' }).uncheck();
+  // Moving the rendering camera invalidates the old capture and releases the viewer.
+  await film.scrollIntoViewIfNeeded();
+  await film.hover();
+  await page.mouse.wheel(0, 80);
+  await expect(page.locator('.path-inspector')).toHaveCount(0);
+  await page.getByRole('button', { name: '重置相机', exact: true }).click();
+  expect(errors).toEqual([]);
+  console.log(
+    'Scene-path: 8 placements / 36 triangles; debug mouse gestures preserve exact linear film.',
   );
 });
 test('runtime baseline parity and capture equals the actual single film sample', async ({

@@ -10,7 +10,7 @@ LightTransport 可复用的是 PDF、BSDF、NEE/MIS、RR 和后续 SVGF 算法�
 
 ## 依赖与构建
 
-`external/pbrt` 是 Git submodule，URL 指向原公开 SDK，固定 gitlink commit `d1532df408a5c13b5151787c80aee2055008476e`；共享改动发布在 `feat/rendering-lab-observation`，原 `main` 不变。准确提交亦可见 `git ls-tree HEAD external/pbrt`。没有在网站内复制 renderer。
+`external/pbrt` 是 Git submodule，URL 指向原公开 SDK，固定 gitlink commit `1bc431970d7044dd5052e8b21b4277a6f8d52854`；共享改动发布在 `feat/rendering-lab-observation`，原 `main` 不变。准确提交亦可见 `git ls-tree HEAD external/pbrt`。没有在网站内复制 renderer。
 
 1. 递归检出固定依赖。
 2. CMake 构建独立 native SDK、consumer packer 与测试。
@@ -60,4 +60,4 @@ Full Lab 是同一组件的 CSS 布局模式，canvas 和 Renderer 不卸载。�
 
 未执行的分支字段保持零，例如 emitter 顶点没有 BSDF scatter。RR 存活概率在未启用时为1。delta 不能将普通连续 BSDF/PDF 当作狄拉克概率。当前用于 diffuse Cornell，没有对特殊透射计数的高级解释。
 
-最小空间视图是捕获位置的可旋转正交投影，**尚无场景网格叠加、反向 PDF、逐路径贡献分解或全策略权重图**。高阶分析在下阶段实现；现有表格不会伪造这些字段。
+空间视图已改为同一GPU场景数据派生网格中的三维折线，支持独立调试相机、剖视和遮挡提示；详见 [相机与路径观察](camera-and-path-inspector.md)。反向 PDF、逐路径贡献分解与全策略权重图仍留待后续，现有表格不会伪造这些字段。

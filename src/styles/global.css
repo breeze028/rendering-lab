@@ -1166,3 +1166,74 @@ main > astro-island {
   line-height: 1.9;
   tab-size: 2;
 }
+
+.viewport canvas {
+  touch-action: none;
+}
+.camera-help {
+  font-size: 9px;
+  color: #8c9d99;
+  padding: 9px 12px;
+  background: #191e22;
+}
+.camera-help button {
+  font-size: 9px;
+  margin: 5px 0 0 8px;
+}
+.path-inspector {
+  grid-template-columns: minmax(0, 1fr);
+}
+.path-scene-viewport {
+  position: relative;
+  height: 420px;
+  margin-top: 14px;
+  background: #11171b;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  overflow: hidden;
+}
+.path-scene-viewport canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+.path-scene-message {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  color: var(--muted);
+}
+.path-scene-tools,
+.path-scene-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+.path-scene-tools button {
+  font-size: 10px;
+}
+.path-scene-options label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.path-scene-options input {
+  accent-color: var(--sage);
+}
+@media (min-width: 1300px) {
+  .lab-full .path-inspector {
+    grid-template-columns: minmax(0, 1.8fr) minmax(280px, 1fr);
+  }
+  .lab-full .path-scene-viewport {
+    height: 520px;
+  }
+}
+@media (max-width: 560px) {
+  .path-scene-viewport {
+    height: 320px;
+  }
+}

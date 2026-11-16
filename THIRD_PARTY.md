@@ -6,3 +6,5 @@
 - Cornell Box 原始场景与其 CC0 `LICENSE.txt` 在同一经过 SHA256 验证的资源 bundle 中。不包含大型模型、不上传用户私有资产。
 - Astro/React/KaTeX/remark/rehype 等按自身许可使用；版本固定于 package-lock.json。KaTeX 字体由构建器随站打包，无远程字体请求。
 - 教学参考只链接与自行解释；没有复制参考网站文章、截图或其交互代码。参考站清单见 docs/design-references.md。
+
+- Three.js / OrbitControls：MIT，作为按需加载的诊断几何视图使用；完整许可随站点保留在 `public/licenses/three-MIT.txt`。不替换WebGPU积分器。

@@ -8,7 +8,7 @@
 
 - 首页就是 MIS 综合课程。浏览器不支持 WebGPU 仍可阅读公式、代码、操作二维实验。
 - Cornell 实验需要点击 Start WebGPU，首次下载并启动单线程 WASM Worker。支持 BSDF-only、NEE-only、MIS、深度、目标 SPP、曝光及8种最终/AOV显示。
-- 点击图像选择像素，展开 Path inspector，指定 sample index，Capture GPU path。Debug orbit 只旋转路径图。
+- 点击图像选择像素，展开 Path inspector，指定 sample index，Capture GPU path。下方三维视口在原场景中显示世界空间路径；左键旋转、右键／Shift平移、滚轮缩放，操作只改变独立调试相机。
 - Open full Lab 在同一会话内改变布局，保留累积；Escape 返回。跨课程导航只保留采样策略。
 - 设计依据：[design-references](docs/design-references.md)。复用边界、AOV与捕获协议：[architecture](docs/architecture.md)。
 
@@ -74,7 +74,7 @@ npm run test:browser
 
 ## 当前边界与下一步
 
-三篇实质课程、一个可运行 Cornell benchmark。其余课程是有标记的规划。Path Inspector 已记录真实路径与基本计算，空间视图为独立可旋转的世界坐标投影；场景网格叠加、反向 PDF、完整贡献归因、variance/error AOV、导出参考图与多算法性能统计尚未实现。没有在线 WGSL 编辑器。
+三篇实质课程、一个可运行 Cornell benchmark。其余课程是有标记的规划。Path Inspector 已记录真实路径与基本计算，空间视图为原场景中的可交互三维折线；反向 PDF、完整贡献归因、variance/error AOV、导出参考图与多算法性能统计尚未实现。没有在线 WGSL 编辑器。
 
 下一步按 BDPT 双向子路径与密度 → Photon/SPPM 的多阶段 buffer/grid → MLT bootstrap/chain → Denoiser guide与reprojection推进。通用会话接口是草案，尚未为这些算法承诺统一执行实现。详见网站 Roadmap 与架构文档。
 
@@ -85,3 +85,7 @@ npm run test:browser
 ## 代码排版
 
 教程正文与阅读导航使用中文，保留 BSDF、PDF、MIS、WGSL 等技术标识。网站源码统一用 `npm run format` 格式化，用 `npm run format:check` 检查；共享 WGSL 教学函数直接在依赖源码中按多行展开，课程引用同一份运行代码。
+
+## 相机与三维路径视图
+
+主渲染图支持左键旋转、右键／Shift平移、滚轮前后移动；单击仍选择像素，拖动不会误选。移动成像相机重新累积并使旧捕获失效。捕获后使用独立调试相机绕原场景观察世界空间路径，支持剖视、NEE/遮挡线开关、顶点选择与聚焦。完整数据边界、PBRT-v4源码参考及验证见 [camera-and-path-inspector](docs/camera-and-path-inspector.md)。

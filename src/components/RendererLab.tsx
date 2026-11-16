@@ -170,6 +170,8 @@ export default function RendererLab() {
       canvas.current,
       renderer.current,
       (pixel) => {
+        captureRequest.current++;
+        setBusy(false);
         setPixel(pixel);
         setCapture(null);
       },
@@ -287,6 +289,8 @@ export default function RendererLab() {
               disabled={!ready}
               onClick={() => {
                 renderer.current?.reset();
+                captureRequest.current++;
+                setBusy(false);
                 setPaused(false);
                 setCapture(null);
               }}

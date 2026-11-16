@@ -224,6 +224,25 @@ test('mouse camera, world-space scene path and independent debug camera', async 
   await page.getByRole('checkbox', { name: 'NEE 连接' }).uncheck();
   await page.getByRole('checkbox', { name: '遮挡路径虚线' }).uncheck();
   await page.getByRole('checkbox', { name: '剖视（隐藏背面）' }).uncheck();
+  // A new click during asynchronous readback must not restore the old pixel's path.
+  await page.evaluate(() => {
+    const r = (window as any).__rl,
+      original = r.capturePath.bind(r);
+    (window as any).__captureSettled = false;
+    r.capturePath = async (...args: number[]) => {
+      const result = await original(...args);
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      (window as any).__captureSettled = true;
+      return result;
+    };
+  });
+  await page.getByRole('button', { name: 'Capture GPU path' }).click();
+  await film.scrollIntoViewIfNeeded();
+  await film.click({ position: { x: 40, y: 40 } });
+  await page.waitForFunction(() => (window as any).__captureSettled);
+  await expect(page.locator('.path-inspector')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Capture GPU path' }).click();
+  await expect(page.locator('.path-scene-viewport')).toHaveAttribute('data-ready', 'true');
   // Moving the rendering camera invalidates the old capture and releases the viewer.
   await film.scrollIntoViewIfNeeded();
   await film.hover();

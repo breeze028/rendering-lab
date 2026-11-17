@@ -241,6 +241,7 @@ test('mouse camera, world-space scene path and independent debug camera', async 
   await film.click({ position: { x: 40, y: 40 } });
   await page.waitForFunction(() => (window as any).__captureSettled);
   await expect(page.locator('.path-inspector')).toHaveCount(0);
+  await page.locator('.capture-panel summary').click();
   await page.getByRole('button', { name: 'Capture GPU path' }).click();
   await expect(page.locator('.path-scene-viewport')).toHaveAttribute('data-ready', 'true');
   // Moving the rendering camera invalidates the old capture and releases the viewer.
